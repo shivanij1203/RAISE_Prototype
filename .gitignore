@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+.env
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+media/
+
+# Node
+node_modules/
+dist/
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Old files (not part of current project)
+app.py
+dashboard.py
+generate_data.py
+generate_real_data.py
+faculty_ai_survey.csv
+faculty_ai_survey_real.csv
+backend/
