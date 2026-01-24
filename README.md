@@ -15,6 +15,12 @@ So instead of another PDF guide that nobody reads, I wanted to build something i
 
 ## What it does
 
+**Role-Based Access**
+When you start, you pick your role (faculty, researcher, administrator, student). The interface adapts based on what's relevant to you.
+
+**Project Dashboard**
+Track your AI-related projects and their compliance status. See at a glance which ones need attention.
+
 **Ethics Decision Assistant**
 Answer a few questions about your use case (qualitative research, grant writing, teaching, etc.) and get personalized guidance. If there's risk, it doesn't just say "stop" — it shows you the steps to proceed safely.
 
@@ -22,13 +28,13 @@ Answer a few questions about your use case (qualitative research, grant writing,
 Generates actual templates you can use — IRB amendments, FERPA checklists, disclosure statements. Fill in your details and download.
 
 **Knowledge Assessment**
-Quick quiz to check your understanding of AI ethics. Not just self-report stuff, but actual scenario-based questions.
+Quick quiz to check your understanding of AI ethics. Scenario-based questions, not just self-report stuff.
 
 ## Tech stack
 
 - Backend: Django + Django REST Framework
 - Frontend: React + Vite
-- Database: SQLite (can swap to PostgreSQL)
+- Database: SQLite
 
 ## Running locally
 
@@ -53,10 +59,6 @@ Then open http://localhost:5173
 
 ## Notes
 
-This is a prototype — built to explore what a practical ethics toolkit could look like. The decision tree logic and templates are based on HIPAA Safe Harbor, FERPA requirements, and COPE guidelines, but obviously would need proper review before any real deployment.
+This is a prototype — built to explore what a practical ethics toolkit could look like. The decision tree logic and templates are based on HIPAA Safe Harbor, FERPA requirements, and COPE guidelines.
 
-The data/stats shown are from published research (EDUCAUSE, Digital Education Council), not made up.
-
-## Screenshots
-
-*(will add these)*
+The stats shown are from published research (EDUCAUSE, Digital Education Council).
