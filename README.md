@@ -16,13 +16,10 @@ So instead of another PDF guide that nobody reads, I wanted to build something i
 ## What it does
 
 **Role-Based Access**
-When you start, you pick your role (faculty, researcher, administrator, student). The interface adapts based on what's relevant to you.
+When you start, you pick your role (student, faculty, administrator). The interface adapts based on what's relevant to you.
 
 **Project Dashboard**
 Track your AI-related projects and their compliance status. See at a glance which ones need attention.
-
-**Ethics Decision Assistant**
-Answer a few questions about your use case (qualitative research, grant writing, teaching, etc.) and get personalized guidance. If there's risk, it doesn't just say "stop" — it shows you the steps to proceed safely.
 
 **Document Generator**
 Generates actual templates you can use — IRB amendments, FERPA checklists, disclosure statements. Fill in your details and download.
@@ -62,3 +59,4 @@ Then open http://localhost:5173
 This is a prototype — built to explore what a practical ethics toolkit could look like. The decision tree logic and templates are based on HIPAA Safe Harbor, FERPA requirements, and COPE guidelines.
 
 The stats shown are from published research (EDUCAUSE, Digital Education Council).
+
