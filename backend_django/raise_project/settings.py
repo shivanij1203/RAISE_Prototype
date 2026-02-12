@@ -132,5 +132,17 @@ CORS_ALLOWED_ORIGINS = [
 REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
-    ]
+    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'api.authentication.CsrfExemptSessionAuthentication',
+    ],
 }
+
+# Allow CORS to send cookies (needed for session auth from React frontend)
+CORS_ALLOW_CREDENTIALS = True
+
+# For development: exempt API from CSRF since React frontend is on a different port
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
