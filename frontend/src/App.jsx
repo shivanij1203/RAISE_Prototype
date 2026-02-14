@@ -1,34 +1,66 @@
 import { useState, useEffect } from 'react';
-import RoleSelector from './components/RoleSelector';
+import Login from './components/Login';
+import ConsentForm from './components/ConsentForm';
 import ProjectList from './components/ProjectList';
 import ProjectDashboard from './components/ProjectDashboard';
 import './App.css';
 
 function App() {
-  const [userRole, setUserRole] = useState(null);
   const [currentView, setCurrentView] = useState('loading');
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userRole, setUserRole] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
 
   useEffect(() => {
-    // Check if user has already selected a role
-    const savedRole = localStorage.getItem('raise_user_role');
-    if (savedRole) {
-      setUserRole(savedRole);
-      setCurrentView('projects');
+    // Check if user is already logged in
+    const savedUser = localStorage.getItem('raise_user');
+    if (savedUser) {
+      const user = JSON.parse(savedUser);
+      setCurrentUser(user);
+      setUserRole(user.role);
+
+      // Check if they've done consent
+      const consent = localStorage.getItem('raise_consent_status');
+      if (!consent) {
+        setCurrentView('consent');
+      } else {
+        setCurrentView('projects');
+      }
     } else {
-      setCurrentView('role');
+      setCurrentView('login');
     }
   }, []);
 
-  function handleRoleSelect(role) {
-    setUserRole(role);
+  function handleLogin(user) {
+    localStorage.setItem('raise_user', JSON.stringify(user));
+    setCurrentUser(user);
+    setUserRole(user.role);
+
+    const consent = localStorage.getItem('raise_consent_status');
+    if (!consent) {
+      setCurrentView('consent');
+    } else {
+      setCurrentView('projects');
+    }
+  }
+
+  function handleConsent(participantCode) {
+    localStorage.setItem('raise_consent_status', 'consented');
+    setCurrentView('projects');
+  }
+
+  function handleSkipConsent() {
+    localStorage.setItem('raise_consent_status', 'skipped');
     setCurrentView('projects');
   }
 
   function handleLogout() {
-    localStorage.removeItem('raise_user_role');
+    localStorage.removeItem('raise_user');
+    localStorage.removeItem('raise_consent_status');
+    localStorage.removeItem('raise_participant_code');
+    setCurrentUser(null);
     setUserRole(null);
-    setCurrentView('role');
+    setCurrentView('login');
   }
 
   function handleSelectProject(project) {
@@ -37,7 +69,6 @@ function App() {
   }
 
   function handleUpdateProject(updatedProject) {
-    // Update in localStorage
     const saved = localStorage.getItem('raise_projects');
     if (saved) {
       const projects = JSON.parse(saved);
@@ -58,8 +89,12 @@ function App() {
     return <div className="loading">Loading...</div>;
   }
 
-  if (currentView === 'role') {
-    return <RoleSelector onRoleSelect={handleRoleSelect} />;
+  if (currentView === 'login') {
+    return <Login onLogin={handleLogin} />;
+  }
+
+  if (currentView === 'consent') {
+    return <ConsentForm onConsent={handleConsent} onSkip={handleSkipConsent} />;
   }
 
   if (currentView === 'project-detail' && selectedProject) {

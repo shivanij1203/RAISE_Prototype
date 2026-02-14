@@ -2,7 +2,64 @@ import axios from 'axios';
 
 const api = axios.create({
   baseURL: 'http://localhost:8000/api',
+  withCredentials: true,
 });
+
+// Auth
+export async function registerUser(email, password, fullName, role) {
+  const res = await api.post('/auth/register', { email, password, full_name: fullName, role });
+  return res.data;
+}
+
+export async function loginUser(email, password) {
+  const res = await api.post('/auth/login', { email, password });
+  return res.data;
+}
+
+export async function logoutUser() {
+  const res = await api.post('/auth/logout');
+  return res.data;
+}
+
+export async function getMe() {
+  const res = await api.get('/auth/me');
+  return res.data;
+}
+
+// Consent
+export async function submitConsent(data) {
+  const res = await api.post('/research/consent', data);
+  return res.data;
+}
+
+// Session tracking
+export async function startSession(participantCode, initialScenario) {
+  const res = await api.post('/research/session/start', {
+    participant_code: participantCode,
+    initial_scenario: initialScenario
+  });
+  return res.data;
+}
+
+export async function recordResponse(sessionCode, nodeKey, answerValue, answerLabel, order) {
+  const res = await api.post('/research/session/response', {
+    session_code: sessionCode,
+    node_key: nodeKey,
+    answer_value: answerValue,
+    answer_label: answerLabel,
+    response_order: order
+  });
+  return res.data;
+}
+
+export async function completeSession(sessionCode, terminalNode, riskLevel) {
+  const res = await api.post('/research/session/complete', {
+    session_code: sessionCode,
+    terminal_node: terminalNode,
+    risk_level: riskLevel
+  });
+  return res.data;
+}
 
 export async function fetchStats(category = null) {
   const params = category ? `?category=${category}` : '';

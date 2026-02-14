@@ -1325,6 +1325,198 @@ footer {
 }
 
 /* ================================
+   LOGIN & CONSENT STYLES
+   ================================ */
+
+/* Login */
+.login-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f0fdf4 0%, #f8fafc 50%, #ecfdf5 100%);
+  padding: 2rem;
+}
+
+.login-card {
+  background: white;
+  border-radius: 16px;
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e2e8f0;
+}
+
+.login-card h1 {
+  font-size: 1.75rem;
+  color: #0f172a;
+  margin-bottom: 0.25rem;
+}
+
+.login-card > p {
+  color: #006747;
+  font-weight: 500;
+  font-size: 0.9375rem;
+  margin-bottom: 2rem;
+}
+
+.login-card .form-group {
+  margin-bottom: 1.25rem;
+}
+
+.login-card .btn-primary {
+  width: 100%;
+  padding: 0.875rem;
+  font-size: 1rem;
+  margin-top: 0.5rem;
+}
+
+.error-text {
+  color: #dc2626;
+  font-size: 0.875rem;
+  background: #fef2f2;
+  padding: 0.625rem 0.875rem;
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  border: 1px solid #fecaca;
+}
+
+.switch-text {
+  text-align: center;
+  margin-top: 1.5rem;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.btn-text {
+  background: none;
+  border: none;
+  color: #006747;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.875rem;
+  padding: 0;
+  margin-left: 0.25rem;
+}
+
+.btn-text:hover {
+  text-decoration: underline;
+}
+
+/* Consent */
+.consent-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f0fdf4 0%, #f8fafc 50%, #ecfdf5 100%);
+  padding: 2rem;
+}
+
+.consent-card {
+  background: white;
+  border-radius: 16px;
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 560px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e2e8f0;
+}
+
+.consent-card h1 {
+  font-size: 1.75rem;
+  color: #0f172a;
+  margin-bottom: 0.5rem;
+}
+
+.consent-card > p {
+  color: #64748b;
+  font-size: 0.9375rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+.consent-info {
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid #e2e8f0;
+}
+
+.consent-info h3 {
+  font-size: 0.875rem;
+  color: #0f172a;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.consent-info h3:nth-of-type(2) {
+  margin-top: 1rem;
+}
+
+.consent-info ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.consent-info li {
+  font-size: 0.875rem;
+  color: #475569;
+  padding: 0.25rem 0 0.25rem 1.25rem;
+  position: relative;
+}
+
+.consent-info li::before {
+  content: "•";
+  position: absolute;
+  left: 0.25rem;
+  color: #006747;
+  font-weight: bold;
+}
+
+.consent-checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 1.5rem 0;
+}
+
+.consent-checkboxes label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  font-size: 0.9375rem;
+  color: #334155;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.consent-checkboxes input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: #006747;
+  flex-shrink: 0;
+}
+
+.consent-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.consent-actions .btn-secondary {
+  flex: 1;
+}
+
+.consent-actions .btn-primary {
+  flex: 1;
+}
+
+/* ================================
    NEW STYLES FOR PIVOTED RAISE
    ================================ */
 

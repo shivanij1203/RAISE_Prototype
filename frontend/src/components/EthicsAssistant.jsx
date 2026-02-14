@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchEthicsStart, fetchEthicsNode, evaluateEthicsPath } from '../services/api';
+import { fetchEthicsStart, fetchEthicsNode, evaluateEthicsPath, startSession, recordResponse, completeSession } from '../services/api';
 import EthicsResult from './EthicsResult';
 
 function EthicsAssistant({ onBack }) {
@@ -8,9 +8,15 @@ function EthicsAssistant({ onBack }) {
   const [history, setHistory] = useState([]);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [sessionCode, setSessionCode] = useState(null);
 
   useEffect(() => {
     loadStartNode();
+    // Start a research session to track responses
+    const participantCode = localStorage.getItem('raise_participant_code');
+    startSession(participantCode, '').then(data => {
+      setSessionCode(data.session_code);
+    }).catch(() => {});
   }, []);
 
   async function loadStartNode() {
@@ -29,12 +35,23 @@ function EthicsAssistant({ onBack }) {
     setAnswers(newAnswers);
     setHistory([...history, { node: currentNode, answer: value }]);
 
+    // Save this response to the database
+    if (sessionCode) {
+      const label = currentNode.options.find(o => o.value === value)?.label || '';
+      recordResponse(sessionCode, currentNode.key, String(value), label, history.length + 1)
+        .catch(() => {});
+    }
+
     if (nextNodeKey.startsWith('terminal_')) {
       // Evaluate and show results
       setLoading(true);
       try {
         const res = await evaluateEthicsPath(newAnswers);
         setResult(res);
+        // Mark session complete
+        if (sessionCode) {
+          completeSession(sessionCode, nextNodeKey, res.risk_level || '').catch(() => {});
+        }
       } catch (err) {
         console.error('Failed to evaluate', err);
       } finally {
@@ -125,7 +142,6 @@ function EthicsAssistant({ onBack }) {
                 onClick={() => handleAnswer(option.value, option.next)}
               >
                 <span className="option-label">{option.label}</span>
-                <span className="option-arrow">→</span>
                 <span className="option-arrow">→</span>
               </button>
             ))}
