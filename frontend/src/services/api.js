@@ -26,6 +26,36 @@ export async function getMe() {
   return res.data;
 }
 
+// Projects
+export async function fetchProjects() {
+  const res = await api.get('/projects');
+  return res.data;
+}
+
+export async function createProject(name, description, aiUseCase) {
+  const res = await api.post('/projects', {
+    name,
+    description,
+    ai_use_case: aiUseCase,
+  });
+  return res.data;
+}
+
+export async function fetchProject(projectId) {
+  const res = await api.get(`/projects/${projectId}`);
+  return res.data;
+}
+
+export async function toggleCheckpoint(projectId, checkpointId) {
+  const res = await api.put(`/projects/${projectId}/checkpoints/${checkpointId}`);
+  return res.data;
+}
+
+export async function logDecision(projectId, data) {
+  const res = await api.post(`/projects/${projectId}/decisions`, data);
+  return res.data;
+}
+
 // Consent
 export async function submitConsent(data) {
   const res = await api.post('/research/consent', data);
@@ -61,6 +91,7 @@ export async function completeSession(sessionCode, terminalNode, riskLevel) {
   return res.data;
 }
 
+// Analytics
 export async function fetchStats(category = null) {
   const params = category ? `?category=${category}` : '';
   const res = await api.get(`/analytics/stats${params}`);
@@ -77,6 +108,7 @@ export async function fetchCategories() {
   return res.data;
 }
 
+// Assessment
 export async function fetchAssessmentQuestions() {
   const res = await api.get('/assessment/questions');
   return res.data;
@@ -103,6 +135,7 @@ export async function evaluateEthicsPath(answers) {
   return res.data;
 }
 
+// Templates & Documents
 export async function fetchTemplates() {
   const res = await api.get('/ethics/templates');
   return res.data;
@@ -116,7 +149,8 @@ export async function fetchTemplate(templateKey) {
 export async function generateDocument(templateKey, fieldValues) {
   const res = await api.post('/ethics/generate', {
     template_key: templateKey,
-    field_values: fieldValues
+    fields: fieldValues
   });
   return res.data;
 }
+

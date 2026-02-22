@@ -5,6 +5,12 @@ import ProjectList from './components/ProjectList';
 import ProjectDashboard from './components/ProjectDashboard';
 import './App.css';
 
+// Map auth roles to dashboard roles
+function mapRole(authRole) {
+  const roleMap = { faculty: 'pi', admin: 'compliance', student: 'student' };
+  return roleMap[authRole] || authRole;
+}
+
 function App() {
   const [currentView, setCurrentView] = useState('loading');
   const [currentUser, setCurrentUser] = useState(null);
@@ -12,14 +18,12 @@ function App() {
   const [selectedProject, setSelectedProject] = useState(null);
 
   useEffect(() => {
-    // Check if user is already logged in
     const savedUser = localStorage.getItem('raise_user');
     if (savedUser) {
       const user = JSON.parse(savedUser);
       setCurrentUser(user);
-      setUserRole(user.role);
+      setUserRole(mapRole(user.role));
 
-      // Check if they've done consent
       const consent = localStorage.getItem('raise_consent_status');
       if (!consent) {
         setCurrentView('consent');
@@ -34,7 +38,7 @@ function App() {
   function handleLogin(user) {
     localStorage.setItem('raise_user', JSON.stringify(user));
     setCurrentUser(user);
-    setUserRole(user.role);
+    setUserRole(mapRole(user.role));
 
     const consent = localStorage.getItem('raise_consent_status');
     if (!consent) {
@@ -68,18 +72,6 @@ function App() {
     setCurrentView('project-detail');
   }
 
-  function handleUpdateProject(updatedProject) {
-    const saved = localStorage.getItem('raise_projects');
-    if (saved) {
-      const projects = JSON.parse(saved);
-      const updatedProjects = projects.map(p =>
-        p.id === updatedProject.id ? updatedProject : p
-      );
-      localStorage.setItem('raise_projects', JSON.stringify(updatedProjects));
-    }
-    setSelectedProject(updatedProject);
-  }
-
   function handleBackToProjects() {
     setSelectedProject(null);
     setCurrentView('projects');
@@ -103,7 +95,7 @@ function App() {
         project={selectedProject}
         role={userRole}
         onBack={handleBackToProjects}
-        onUpdateProject={handleUpdateProject}
+        onProjectUpdated={(updated) => setSelectedProject(updated)}
       />
     );
   }
