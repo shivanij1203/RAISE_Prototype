@@ -7,7 +7,7 @@ import './App.css';
 
 // Map auth roles to dashboard roles
 function mapRole(authRole) {
-  const roleMap = { faculty: 'pi', admin: 'compliance', student: 'student' };
+  const roleMap = { faculty: 'pi', student: 'student' };
   return roleMap[authRole] || authRole;
 }
 

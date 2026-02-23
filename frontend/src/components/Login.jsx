@@ -76,9 +76,8 @@ function Login({ onLogin }) {
             <div className="form-group">
               <label>Role</label>
               <select value={role} onChange={e => setRole(e.target.value)}>
-                <option value="faculty">Faculty</option>
+                <option value="faculty">Faculty / PI</option>
                 <option value="student">Student</option>
-                <option value="admin">Admin</option>
               </select>
             </div>
           )}
