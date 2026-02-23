@@ -1,11 +1,13 @@
 import { useState } from 'react';
+import { toggleCheckpoint, logDecision, fetchProject } from '../services/api';
 
-function ProjectDashboard({ project, role, onBack, onUpdateProject }) {
+function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpdated }) {
+  const [project, setProject] = useState(initialProject);
   const [activeTab, setActiveTab] = useState('checkpoints');
   const [showLogModal, setShowLogModal] = useState(false);
   const [newDecision, setNewDecision] = useState({ checkpoint: '', description: '', notes: '', proofType: '', proofValue: '' });
-  const [showReportModal, setShowReportModal] = useState(false);
   const [expandedCheckpoint, setExpandedCheckpoint] = useState(null);
+  const [saving, setSaving] = useState(false);
   const [disclosureForm, setDisclosureForm] = useState({
     aiTools: '',
     aiPurpose: '',
@@ -13,6 +15,17 @@ function ProjectDashboard({ project, role, onBack, onUpdateProject }) {
     dataHandling: ''
   });
   const [generatedDisclosure, setGeneratedDisclosure] = useState('');
+
+  // Refresh project data from API
+  async function refreshProject() {
+    try {
+      const updated = await fetchProject(project.id);
+      setProject(updated);
+      if (onProjectUpdated) onProjectUpdated(updated);
+    } catch (err) {
+      console.error('Failed to refresh project', err);
+    }
+  }
 
   function getExampleForCheckpoint(checkpointId) {
     const examples = {
@@ -30,43 +43,72 @@ function ProjectDashboard({ project, role, onBack, onUpdateProject }) {
     return examples[checkpointId] || 'e.g., Describe what action was taken';
   }
 
-  function handleCheckpointToggle(checkpointId) {
-    const updatedCheckpoints = project.checkpoints.map(cp =>
-      cp.id === checkpointId
-        ? { ...cp, completed: !cp.completed, completedAt: !cp.completed ? new Date().toISOString() : null }
-        : cp
-    );
-
-    const updatedProject = { ...project, checkpoints: updatedCheckpoints };
-    onUpdateProject(updatedProject);
+  async function handleCheckpointToggle(checkpointId) {
+    setSaving(true);
+    try {
+      const result = await toggleCheckpoint(project.id, checkpointId);
+      // Update local state
+      const updatedCheckpoints = project.checkpoints.map(cp =>
+        cp.id === checkpointId
+          ? { ...cp, completed: result.completed, completedAt: result.completedAt }
+          : cp
+      );
+      const updatedProject = { ...project, checkpoints: updatedCheckpoints };
+      setProject(updatedProject);
+      if (onProjectUpdated) onProjectUpdated(updatedProject);
+    } catch (err) {
+      console.error('Failed to toggle checkpoint', err);
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function handleLogDecision() {
+  async function handleLogDecision() {
     if (!newDecision.checkpoint || !newDecision.description) return;
 
-    const decision = {
-      id: Date.now().toString(),
-      checkpoint: newDecision.checkpoint,
-      description: newDecision.description,
-      notes: newDecision.notes,
-      proofType: newDecision.proofType || null,
-      proofValue: newDecision.proofValue || null,
-      loggedAt: new Date().toISOString()
-    };
+    setSaving(true);
+    try {
+      const result = await logDecision(project.id, {
+        checkpoint: newDecision.checkpoint,
+        description: newDecision.description,
+        notes: newDecision.notes,
+        proofType: newDecision.proofType || '',
+        proofValue: newDecision.proofValue || '',
+      });
 
-    const updatedProject = {
-      ...project,
-      decisions: [...(project.decisions || []), decision]
-    };
+      // Update local state with the new decision
+      const newDecisionObj = {
+        id: result.id,
+        checkpoint: result.checkpoint,
+        description: result.description,
+        notes: result.notes,
+        proofType: result.proofType,
+        proofValue: result.proofValue,
+        loggedAt: result.loggedAt,
+      };
 
-    onUpdateProject(updatedProject);
-    setNewDecision({ checkpoint: '', description: '', notes: '', proofType: '', proofValue: '' });
-    setShowLogModal(false);
+      // Update checkpoint completed status
+      const updatedCheckpoints = project.checkpoints.map(cp =>
+        cp.id === newDecision.checkpoint
+          ? { ...cp, completed: result.checkpointCompleted, completedAt: result.checkpointCompletedAt }
+          : cp
+      );
 
-    // Auto-complete the checkpoint
-    const checkpointToComplete = project.checkpoints.find(c => c.id === newDecision.checkpoint);
-    if (checkpointToComplete && !checkpointToComplete.completed) {
-      handleCheckpointToggle(newDecision.checkpoint);
+      const updatedProject = {
+        ...project,
+        checkpoints: updatedCheckpoints,
+        decisions: [newDecisionObj, ...(project.decisions || [])],
+      };
+      setProject(updatedProject);
+      if (onProjectUpdated) onProjectUpdated(updatedProject);
+
+      setNewDecision({ checkpoint: '', description: '', notes: '', proofType: '', proofValue: '' });
+      setShowLogModal(false);
+    } catch (err) {
+      console.error('Failed to log decision', err);
+      alert('Error saving decision. Please try again.');
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -79,7 +121,6 @@ function ProjectDashboard({ project, role, onBack, onUpdateProject }) {
       completionRate: getCompletionPercentage()
     };
 
-    // Create downloadable report
     const reportText = formatReportAsText(report);
     const blob = new Blob([reportText], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -130,10 +171,9 @@ Report Generated: ${new Date(report.generatedAt).toLocaleString()}
   COMPLIANCE STATUS: ${report.completionRate}%
   `;
 
-    // Add visual progress bar
     const progressBarLength = 40;
     const filledLength = Math.round((report.completionRate / 100) * progressBarLength);
-    const progressBar = '█'.repeat(filledLength) + '░'.repeat(progressBarLength - filledLength);
+    const progressBar = '\u2588'.repeat(filledLength) + '\u2591'.repeat(progressBarLength - filledLength);
     text += `
   Progress: [${progressBar}] ${report.completionRate}%
 
@@ -146,23 +186,19 @@ Report Generated: ${new Date(report.generatedAt).toLocaleString()}
     if (risk.risks.length > 0) {
       text += `\n  Risk Factors:\n`;
       risk.risks.forEach(r => {
-        text += `    • [${r.level.toUpperCase()}] ${r.message}\n`;
+        text += `    \u2022 [${r.level.toUpperCase()}] ${r.message}\n`;
       });
     } else {
-      text += `\n  ✓ No outstanding compliance risks identified\n`;
+      text += `\n  \u2713 No outstanding compliance risks identified\n`;
     }
 
     if (report.completionRate === 100) {
       text += `
-  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-  ┃  ✓ ALL COMPLIANCE CHECKPOINTS COMPLETE                                   ┃
-  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+  \u2501\u2501\u2501 ALL COMPLIANCE CHECKPOINTS COMPLETE \u2501\u2501\u2501
 `;
     } else if (pendingCount > 0) {
       text += `
-  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-  ┃  ⚠ ${pendingCount} CHECKPOINT(S) PENDING - ACTION REQUIRED${' '.repeat(Math.max(0, 30 - pendingCount.toString().length))}┃
-  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+  WARNING: ${pendingCount} CHECKPOINT(S) PENDING - ACTION REQUIRED
 `;
     }
 
@@ -170,7 +206,7 @@ Report Generated: ${new Date(report.generatedAt).toLocaleString()}
 ┌───────────────────────────────────────────────────────────────────────────────┐
 │  CHECKPOINT STATUS DETAIL                                                      │
 └───────────────────────────────────────────────────────────────────────────────┘
-  Legend: ✓ = Completed | ○ = Pending
+  Legend: \u2713 = Completed | \u25CB = Pending
 `;
 
     const categories = [...new Set(report.checkpoints.map(c => c.category))];
@@ -180,15 +216,15 @@ Report Generated: ${new Date(report.generatedAt).toLocaleString()}
       const catPercent = Math.round((catCompleted / catCheckpoints.length) * 100);
 
       text += `
-  ─── ${category.toUpperCase()} (${catCompleted}/${catCheckpoints.length} - ${catPercent}%) ${'─'.repeat(Math.max(0, 50 - category.length))}
+  --- ${category.toUpperCase()} (${catCompleted}/${catCheckpoints.length} - ${catPercent}%) ---
 `;
       catCheckpoints.forEach(cp => {
-        const status = cp.completed ? '  ✓' : '  ○';
+        const statusIcon = cp.completed ? '  \u2713' : '  \u25CB';
         const statusLabel = cp.completed ? '[DONE]   ' : '[PENDING]';
         const date = cp.completedAt
           ? `Completed: ${new Date(cp.completedAt).toLocaleDateString()}`
           : 'Not yet completed';
-        text += `${status} ${statusLabel} ${cp.label}\n`;
+        text += `${statusIcon} ${statusLabel} ${cp.label}\n`;
         text += `                 ${date}\n`;
       });
     });
@@ -227,7 +263,6 @@ Report Generated: ${new Date(report.generatedAt).toLocaleString()}
       });
     }
 
-    // Add action items section for incomplete checkpoints
     const incompleteCheckpoints = report.checkpoints.filter(c => !c.completed);
     if (incompleteCheckpoints.length > 0) {
       text += `
@@ -330,7 +365,7 @@ Date: ${new Date().toLocaleDateString()}`;
   // Filter checkpoints based on role
   const getMyCheckpoints = () => {
     if (role === 'compliance') {
-      return project.checkpoints || []; // Compliance sees all
+      return project.checkpoints || [];
     }
     return project.checkpoints?.filter(c => c.assignedTo === role) || [];
   };
@@ -339,7 +374,6 @@ Date: ${new Date().toLocaleDateString()}`;
   const allCheckpoints = project.checkpoints || [];
   const categories = [...new Set(myCheckpoints.map(c => c.category))];
 
-  // Role-specific completion
   const getMyCompletionPercentage = () => {
     if (myCheckpoints.length === 0) return 0;
     const completed = myCheckpoints.filter(c => c.completed).length;
@@ -348,13 +382,11 @@ Date: ${new Date().toLocaleDateString()}`;
 
   const completion = role === 'compliance' ? getCompletionPercentage() : getMyCompletionPercentage();
 
-  // Calculate risk assessment
   function getRiskAssessment() {
     const risks = [];
     const checkpointsToCheck = role === 'compliance' ? allCheckpoints : myCheckpoints;
     const incompleteCheckpoints = checkpointsToCheck.filter(c => !c.completed);
 
-    // Check for high-risk incomplete items
     const criticalCheckpoints = ['irb', 'data_deidentified', 'participant_consent'];
     const incompleteCritical = incompleteCheckpoints.filter(c => criticalCheckpoints.includes(c.id));
 
@@ -366,7 +398,6 @@ Date: ${new Date().toLocaleDateString()}`;
       });
     }
 
-    // Check for medium-risk items
     const mediumCheckpoints = ['bias_audit', 'human_review', 'ai_disclosure'];
     const incompleteMedium = incompleteCheckpoints.filter(c => mediumCheckpoints.includes(c.id));
 
@@ -378,7 +409,6 @@ Date: ${new Date().toLocaleDateString()}`;
       });
     }
 
-    // Determine overall risk level
     let overallRisk = 'low';
     if (risks.some(r => r.level === 'high')) {
       overallRisk = 'high';
@@ -395,9 +425,9 @@ Date: ${new Date().toLocaleDateString()}`;
     <div className="project-dashboard">
       <header className="project-dashboard-header">
         <div className="header-top-row">
-          <button className="back-btn" onClick={onBack}>← Back to Projects</button>
+          <button className="back-btn" onClick={onBack}>&larr; Back to Projects</button>
           <span className={`role-badge role-${role}`}>
-            👤 {role === 'pi' ? 'Principal Investigator' :
+            {role === 'pi' ? 'Principal Investigator' :
              role === 'student' ? 'Student Researcher' :
              'Compliance Officer'}
           </span>
@@ -406,7 +436,7 @@ Date: ${new Date().toLocaleDateString()}`;
           <div className="project-title-section">
             <h1>{project.name}</h1>
             <p className="project-meta">
-              Created {new Date(project.createdAt).toLocaleDateString()} • {project.description || 'No description'}
+              Created {new Date(project.createdAt).toLocaleDateString()} &bull; {project.description || 'No description'}
             </p>
           </div>
           <button className="btn-primary" onClick={generateReport}>
@@ -458,9 +488,9 @@ Date: ${new Date().toLocaleDateString()}`;
         <div className={`risk-assessment risk-${riskAssessment.overallRisk}`}>
           <div className="risk-header">
             <span className="risk-level">
-              {riskAssessment.overallRisk === 'high' ? '⚠️ High Risk' :
-               riskAssessment.overallRisk === 'medium' ? '⚡ Medium Risk' :
-               '✓ Low Risk'}
+              {riskAssessment.overallRisk === 'high' ? 'High Risk' :
+               riskAssessment.overallRisk === 'medium' ? 'Medium Risk' :
+               'Low Risk'}
             </span>
           </div>
           {riskAssessment.risks.length > 0 ? (
@@ -528,7 +558,7 @@ Date: ${new Date().toLocaleDateString()}`;
               </div>
               <div className="explainer-status">
                 <span className={`status-badge ${completion === 100 ? 'complete' : completion > 0 ? 'in-progress' : 'not-started'}`}>
-                  {completion === 100 ? '✓ All Complete' :
+                  {completion === 100 ? 'All Complete' :
                    completion > 0 ? `${myCheckpoints.filter(c => c.completed).length}/${myCheckpoints.length} Done` :
                    'Not Started'}
                 </span>
@@ -542,7 +572,7 @@ Date: ${new Date().toLocaleDateString()}`;
               </div>
               <div className="explainer-status">
                 <span className={`status-badge ${completion === 100 ? 'complete' : completion > 0 ? 'in-progress' : 'not-started'}`}>
-                  {completion === 100 ? '✓ All Complete' :
+                  {completion === 100 ? 'All Complete' :
                    completion > 0 ? `${myCheckpoints.filter(c => c.completed).length}/${myCheckpoints.length} Done` :
                    'Not Started'}
                 </span>
@@ -564,9 +594,9 @@ Date: ${new Date().toLocaleDateString()}`;
                       <div className="checkpoint-main">
                         <div className="checkpoint-status-icon">
                           {checkpoint.completed ? (
-                            <span className="status-complete">✓</span>
+                            <span className="status-complete">{'\u2713'}</span>
                           ) : (
-                            <span className="status-pending">○</span>
+                            <span className="status-pending">{'\u25CB'}</span>
                           )}
                         </div>
                         <div className="checkpoint-content">
@@ -587,7 +617,7 @@ Date: ${new Date().toLocaleDateString()}`;
                             onClick={() => setExpandedCheckpoint(expandedCheckpoint === checkpoint.id ? null : checkpoint.id)}
                             title="Learn more about this checkpoint"
                           >
-                            {expandedCheckpoint === checkpoint.id ? '▼' : 'Info'}
+                            {expandedCheckpoint === checkpoint.id ? 'Hide' : 'Info'}
                           </button>
                         )}
                         {role === 'student' && (
@@ -596,7 +626,7 @@ Date: ${new Date().toLocaleDateString()}`;
                             onClick={() => setExpandedCheckpoint(expandedCheckpoint === checkpoint.id ? null : checkpoint.id)}
                             title="Learn what this means"
                           >
-                            {expandedCheckpoint === checkpoint.id ? '▼ Hide' : 'Guide'}
+                            {expandedCheckpoint === checkpoint.id ? 'Hide' : 'Guide'}
                           </button>
                         )}
                         {role !== 'compliance' && !checkpoint.completed && (
@@ -625,7 +655,7 @@ Date: ${new Date().toLocaleDateString()}`;
                         )}
                         {role === 'compliance' && (
                           <span className="compliance-status-label">
-                            {checkpoint.completed ? '✓ Documented' : '⚠ Pending'}
+                            {checkpoint.completed ? 'Documented' : 'Pending'}
                           </span>
                         )}
                       </div>
@@ -666,7 +696,7 @@ Date: ${new Date().toLocaleDateString()}`;
             </div>
           ) : (
             <div className="decisions-timeline">
-              {project.decisions.slice().reverse().map(decision => (
+              {project.decisions.map(decision => (
                 <div key={decision.id} className="decision-item">
                   <div className="decision-date">
                     {new Date(decision.loggedAt).toLocaleDateString()}
@@ -852,9 +882,9 @@ Date: ${new Date().toLocaleDateString()}`;
               <button
                 className="btn-primary"
                 onClick={handleLogDecision}
-                disabled={!newDecision.checkpoint || !newDecision.description}
+                disabled={!newDecision.checkpoint || !newDecision.description || saving}
               >
-                Save Documentation
+                {saving ? 'Saving...' : 'Save Documentation'}
               </button>
             </div>
           </div>

@@ -1,177 +1,48 @@
 import { useState, useEffect } from 'react';
+import { fetchProjects, createProject } from '../services/api';
 
-function ProjectList({ role, onSelectProject, onCreateProject, onLogout }) {
+function ProjectList({ role, onSelectProject, onLogout }) {
   const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newProject, setNewProject] = useState({ name: '', description: '', aiUseCase: '' });
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    // Load projects from localStorage (in real app, this would be API)
-    const saved = localStorage.getItem('raise_projects');
-    if (saved) {
-      setProjects(JSON.parse(saved));
-    }
+    loadProjects();
   }, []);
 
-  function saveProjects(updatedProjects) {
-    localStorage.setItem('raise_projects', JSON.stringify(updatedProjects));
-    setProjects(updatedProjects);
-  }
-
-  function handleCreateProject() {
-    if (!newProject.name.trim()) return;
-
-    const project = {
-      id: Date.now().toString(),
-      name: newProject.name,
-      description: newProject.description,
-      aiUseCase: newProject.aiUseCase,
-      createdAt: new Date().toISOString(),
-      status: 'active',
-      checkpoints: generateCheckpoints(newProject.aiUseCase),
-      decisions: []
-    };
-
-    saveProjects([...projects, project]);
-    setNewProject({ name: '', description: '', aiUseCase: '' });
-    setShowCreateModal(false);
-    onSelectProject(project);
-  }
-
-  function generateCheckpoints(aiUseCase) {
-    // Generate relevant checkpoints based on AI use case
-    // Each checkpoint includes educational help text
-
-    const baseCheckpoints = [
-      {
-        id: 'irb',
-        label: 'IRB Status Confirmed',
-        category: 'Regulatory',
-        completed: false,
-        assignedTo: 'pi',
-        what: 'Verify whether your research requires IRB approval and if your current protocol covers AI use.',
-        why: 'IRB approval obtained before AI tools existed may not cover new AI methods. Using AI on human subjects data without proper approval is a compliance violation.',
-        how: 'Check your IRB protocol. If AI is not mentioned, contact your IRB office to determine if an amendment is needed.'
-      },
-      {
-        id: 'data_classification',
-        label: 'Data Classification Determined',
-        category: 'Data',
-        completed: false,
-        assignedTo: 'pi',
-        what: 'Identify what type of data you are using and its sensitivity level.',
-        why: 'Different data types have different handling requirements. Identifiable health data requires stricter controls than public datasets.',
-        how: 'Categorize your data: Public, Internal, Confidential, or Restricted. Check if it contains PII, PHI, or other sensitive information.'
-      },
-      {
-        id: 'ai_disclosure',
-        label: 'AI Use Disclosure Planned',
-        category: 'Transparency',
-        completed: false,
-        assignedTo: 'pi',
-        what: 'Plan how you will disclose AI use in publications, presentations, and to participants.',
-        why: 'Most journals and conferences now require AI disclosure. Transparency builds trust and is increasingly required by publishers.',
-        how: 'Draft a disclosure statement describing which AI tools were used and for what purpose. Include in your methods section.'
-      },
-    ];
-
-    const dataCheckpoints = [
-      {
-        id: 'data_deidentified',
-        label: 'Data De-identification Verified',
-        category: 'Data',
-        completed: false,
-        assignedTo: 'student',
-        what: 'Ensure personal identifiers are removed before AI processing.',
-        why: 'Sending identifiable data to AI systems (especially cloud-based) may violate privacy regulations and IRB requirements.',
-        how: 'Remove or mask: names, dates, locations, ID numbers, photos, and any combination that could identify someone. Use established de-identification standards (HIPAA Safe Harbor or Expert Determination).'
-      },
-      {
-        id: 'data_storage',
-        label: 'Secure Storage Confirmed',
-        category: 'Data',
-        completed: false,
-        assignedTo: 'student',
-        what: 'Verify that data and AI outputs are stored securely.',
-        why: 'Research data requires protection from unauthorized access. Cloud AI services may retain data unless configured otherwise.',
-        how: 'Use institutional approved storage. Check AI service data retention policies. Enable encryption at rest and in transit.'
-      },
-    ];
-
-    const modelCheckpoints = [
-      {
-        id: 'bias_audit',
-        label: 'Bias Audit Conducted',
-        category: 'Model',
-        completed: false,
-        assignedTo: 'student',
-        what: 'Test your AI model for unfair or biased outcomes across different groups.',
-        why: 'AI models can perpetuate or amplify biases in training data, leading to unfair outcomes for certain populations.',
-        how: 'Evaluate model performance across demographic subgroups (age, gender, race if applicable). Compare error rates and outcomes. Document any disparities found and mitigation steps taken.'
-      },
-      {
-        id: 'human_review',
-        label: 'Human Review Process Defined',
-        category: 'Model',
-        completed: false,
-        assignedTo: 'pi',
-        what: 'Establish how humans will review and validate AI outputs.',
-        why: 'AI systems make errors. Human oversight catches mistakes and maintains accountability, especially for consequential decisions.',
-        how: 'Define: Who reviews AI outputs? What percentage is reviewed? What are the criteria for acceptance/rejection? Document the review process.'
-      },
-    ];
-
-    const qualitativeCheckpoints = [
-      {
-        id: 'ai_coding_disclosure',
-        label: 'AI-Assisted Coding Disclosed',
-        category: 'Transparency',
-        completed: false,
-        assignedTo: 'student',
-        what: 'Document how AI was used in qualitative coding or analysis.',
-        why: 'Using AI to code interviews or analyze text changes the methodology. Reviewers and readers need to evaluate this.',
-        how: 'Describe the AI tool used, what it did (initial codes, theme suggestions), and how human researchers validated or modified the output.'
-      },
-      {
-        id: 'participant_consent',
-        label: 'Participant Consent Covers AI',
-        category: 'Regulatory',
-        completed: false,
-        assignedTo: 'pi',
-        what: 'Ensure consent forms mention AI processing of participant data.',
-        why: 'Participants have a right to know their data will be processed by AI systems, especially if using cloud-based tools.',
-        how: 'Review consent forms. If AI use was not mentioned, consult IRB about whether re-consent or notification is needed.'
-      },
-    ];
-
-    const writingCheckpoints = [
-      {
-        id: 'ai_writing_disclosure',
-        label: 'AI Writing Assistance Disclosed',
-        category: 'Transparency',
-        completed: false,
-        assignedTo: 'student',
-        what: 'Document any AI assistance in drafting or editing text.',
-        why: 'Journals require disclosure of AI writing tools. Undisclosed use may be considered a form of misconduct.',
-        how: 'List AI tools used (e.g., ChatGPT, Grammarly AI). Describe the extent: grammar checking, sentence rephrasing, content generation. Place in acknowledgments or methods.'
-      },
-    ];
-
-    let checkpoints = [...baseCheckpoints];
-
-    if (aiUseCase === 'data_analysis') {
-      checkpoints = [...checkpoints, ...dataCheckpoints, ...modelCheckpoints];
-    } else if (aiUseCase === 'qualitative') {
-      checkpoints = [...checkpoints, ...dataCheckpoints, ...qualitativeCheckpoints];
-    } else if (aiUseCase === 'ml_model') {
-      checkpoints = [...checkpoints, ...dataCheckpoints, ...modelCheckpoints];
-    } else if (aiUseCase === 'writing') {
-      checkpoints = [...checkpoints, ...writingCheckpoints];
-    } else if (aiUseCase === 'literature') {
-      checkpoints = [...checkpoints, ...writingCheckpoints];
+  async function loadProjects() {
+    try {
+      const data = await fetchProjects();
+      setProjects(data);
+    } catch (err) {
+      console.error('Failed to load projects', err);
+    } finally {
+      setLoading(false);
     }
+  }
 
-    return checkpoints;
+  async function handleCreateProject() {
+    if (!newProject.name.trim() || !newProject.aiUseCase) return;
+
+    setCreating(true);
+    try {
+      const project = await createProject(
+        newProject.name,
+        newProject.description,
+        newProject.aiUseCase
+      );
+      setProjects([project, ...projects]);
+      setNewProject({ name: '', description: '', aiUseCase: '' });
+      setShowCreateModal(false);
+      onSelectProject(project);
+    } catch (err) {
+      console.error('Failed to create project', err);
+      alert('Error creating project. Please try again.');
+    } finally {
+      setCreating(false);
+    }
   }
 
   function getCompletionPercentage(project) {
@@ -195,6 +66,10 @@ function ProjectList({ role, onSelectProject, onCreateProject, onLogout }) {
     { value: 'other', label: 'Other' }
   ];
 
+  if (loading) {
+    return <div className="loading">Loading projects...</div>;
+  }
+
   return (
     <div className="project-list">
       <header className="project-list-header">
@@ -211,14 +86,14 @@ function ProjectList({ role, onSelectProject, onCreateProject, onLogout }) {
         </div>
         <div className="header-actions">
           <button className="btn-secondary" onClick={onLogout}>
-            Switch Role
+            Sign Out
           </button>
         </div>
       </header>
 
       {projects.length === 0 ? (
         <div className="empty-state">
-                    <h2>No Projects Yet</h2>
+          <h2>No Projects Yet</h2>
           <p>Create your first project to start tracking AI ethics compliance</p>
           <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
             + Create Project
@@ -322,9 +197,9 @@ function ProjectList({ role, onSelectProject, onCreateProject, onLogout }) {
               <button
                 className="btn-primary"
                 onClick={handleCreateProject}
-                disabled={!newProject.name.trim() || !newProject.aiUseCase}
+                disabled={!newProject.name.trim() || !newProject.aiUseCase || creating}
               >
-                Create Project
+                {creating ? 'Creating...' : 'Create Project'}
               </button>
             </div>
           </div>
