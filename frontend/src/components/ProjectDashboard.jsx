@@ -642,16 +642,26 @@ Date: ${new Date().toLocaleDateString()}`;
                           </button>
                         )}
                         {role !== 'compliance' && checkpoint.completed && (
-                          <button
-                            className="log-btn secondary"
-                            onClick={() => {
-                              setNewDecision({ ...newDecision, checkpoint: checkpoint.id });
-                              setShowLogModal(true);
-                            }}
-                            title="Add another decision"
-                          >
-                            + Add Note
-                          </button>
+                          <>
+                            <button
+                              className="log-btn secondary"
+                              onClick={() => {
+                                setNewDecision({ ...newDecision, checkpoint: checkpoint.id });
+                                setShowLogModal(true);
+                              }}
+                              title="Add another decision"
+                            >
+                              + Add Note
+                            </button>
+                            <button
+                              className="log-btn undo"
+                              onClick={() => handleCheckpointToggle(checkpoint.id)}
+                              disabled={saving}
+                              title="Mark as incomplete"
+                            >
+                              Undo
+                            </button>
+                          </>
                         )}
                         {role === 'compliance' && (
                           <span className="compliance-status-label">

@@ -2275,6 +2275,19 @@ footer {
   color: #475569;
 }
 
+.log-btn.undo {
+  background: transparent;
+  color: #94a3b8;
+  border: 1px dashed #e2e8f0;
+  font-size: 0.75rem;
+}
+
+.log-btn.undo:hover {
+  color: #ef4444;
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
 .compliance-status-label {
   font-size: 0.8125rem;
   padding: 0.25rem 0.5rem;
