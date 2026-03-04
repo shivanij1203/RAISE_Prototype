@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import Login from './components/Login';
-import ConsentForm from './components/ConsentForm';
 import ProjectList from './components/ProjectList';
 import ProjectDashboard from './components/ProjectDashboard';
 import './App.css';
@@ -23,13 +22,7 @@ function App() {
       const user = JSON.parse(savedUser);
       setCurrentUser(user);
       setUserRole(mapRole(user.role));
-
-      const consent = localStorage.getItem('raise_consent_status');
-      if (!consent) {
-        setCurrentView('consent');
-      } else {
-        setCurrentView('projects');
-      }
+      setCurrentView('projects');
     } else {
       setCurrentView('login');
     }
@@ -39,29 +32,11 @@ function App() {
     localStorage.setItem('raise_user', JSON.stringify(user));
     setCurrentUser(user);
     setUserRole(mapRole(user.role));
-
-    const consent = localStorage.getItem('raise_consent_status');
-    if (!consent) {
-      setCurrentView('consent');
-    } else {
-      setCurrentView('projects');
-    }
-  }
-
-  function handleConsent(participantCode) {
-    localStorage.setItem('raise_consent_status', 'consented');
-    setCurrentView('projects');
-  }
-
-  function handleSkipConsent() {
-    localStorage.setItem('raise_consent_status', 'skipped');
     setCurrentView('projects');
   }
 
   function handleLogout() {
     localStorage.removeItem('raise_user');
-    localStorage.removeItem('raise_consent_status');
-    localStorage.removeItem('raise_participant_code');
     setCurrentUser(null);
     setUserRole(null);
     setCurrentView('login');
@@ -83,10 +58,6 @@ function App() {
 
   if (currentView === 'login') {
     return <Login onLogin={handleLogin} />;
-  }
-
-  if (currentView === 'consent') {
-    return <ConsentForm onConsent={handleConsent} onSkip={handleSkipConsent} />;
   }
 
   if (currentView === 'project-detail' && selectedProject) {
