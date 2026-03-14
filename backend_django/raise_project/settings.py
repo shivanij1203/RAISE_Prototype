@@ -126,6 +126,7 @@ STATIC_URL = 'static/'
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://100.123.147.42:5173",
 ]
 
 # REST Framework settings
@@ -141,8 +142,22 @@ REST_FRAMEWORK = {
 # Allow CORS to send cookies (needed for session auth from React frontend)
 CORS_ALLOW_CREDENTIALS = True
 
+# Security headers
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+
+# Cache (used for login rate limiting)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    }
+}
+
 # For development: exempt API from CSRF since React frontend is on a different port
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://100.123.147.42:5173",
 ]

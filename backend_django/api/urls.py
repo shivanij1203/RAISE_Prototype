@@ -13,6 +13,7 @@ urlpatterns = [
     path('projects/<int:project_id>', views.project_detail, name='project-detail'),
     path('projects/<int:project_id>/checkpoints/<str:checkpoint_id>', views.checkpoint_toggle, name='checkpoint-toggle'),
     path('projects/<int:project_id>/decisions', views.decision_create, name='decision-create'),
+    path('projects/<int:project_id>/export', views.project_export, name='project-export'),
 
     # Consent endpoints
     path('research/consent', views.submit_consent, name='submit-consent'),
