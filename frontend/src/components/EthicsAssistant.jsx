@@ -13,7 +13,7 @@ function EthicsAssistant({ onBack }) {
   useEffect(() => {
     loadStartNode();
     // Start a research session to track responses
-    const participantCode = localStorage.getItem('raise_participant_code');
+    const participantCode = localStorage.getItem('align_participant_code');
     startSession(participantCode, '').then(data => {
       setSessionCode(data.session_code);
     }).catch(() => {});

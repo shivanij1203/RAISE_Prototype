@@ -1,5 +1,8 @@
-import { useState } from 'react';
-import { toggleCheckpoint, logDecision, fetchProject } from '../services/api';
+import { useState, useEffect } from 'react';
+import { toggleCheckpoint, logDecision, fetchProject, fetchTemplates, exportProjectCSV } from '../services/api';
+import EthicsAssistant from './EthicsAssistant';
+import Assessment from './Assessment';
+import DocumentGenerator from './DocumentGenerator';
 
 function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpdated }) {
   const [project, setProject] = useState(initialProject);
@@ -15,6 +18,20 @@ function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpda
     dataHandling: ''
   });
   const [generatedDisclosure, setGeneratedDisclosure] = useState('');
+  const [toast, setToast] = useState('');
+  const [templates, setTemplates] = useState([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+
+  useEffect(() => {
+    if (activeTab === 'documents' && templates.length === 0 && !loadingTemplates) {
+      setLoadingTemplates(true);
+      fetchTemplates()
+        .then(data => setTemplates(Array.isArray(data) ? data : []))
+        .catch(err => console.error('Failed to load templates', err))
+        .finally(() => setLoadingTemplates(false));
+    }
+  }, [activeTab]);
 
   // Refresh project data from API
   async function refreshProject() {
@@ -56,6 +73,7 @@ function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpda
       const updatedProject = { ...project, checkpoints: updatedCheckpoints };
       setProject(updatedProject);
       if (onProjectUpdated) onProjectUpdated(updatedProject);
+      showToast(result.completed ? 'Checkpoint complete ✓' : 'Checkpoint unchecked');
     } catch (err) {
       console.error('Failed to toggle checkpoint', err);
     } finally {
@@ -112,13 +130,31 @@ function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpda
     }
   }
 
+  async function handleExportCSV() {
+    try {
+      const blob = await exportProjectCSV(project.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${project.name.replace(/\s+/g, '_')}_compliance.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed', err);
+    }
+  }
+
   function generateReport() {
     const report = {
       projectName: project.name,
       generatedAt: new Date().toISOString(),
       checkpoints: project.checkpoints,
       decisions: project.decisions || [],
-      completionRate: getCompletionPercentage()
+      completionRate: getCompletionPercentage(),
+      myCompletionRate: getMyCompletionPercentage(),
+      reportRole: role,
+      myCheckpointsCompleted: myCheckpoints.filter(c => c.completed).length,
+      myCheckpointsCount: myCheckpoints.length,
     };
 
     const reportText = formatReportAsText(report);
@@ -149,8 +185,8 @@ function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpda
     let text = `
 ╔═══════════════════════════════════════════════════════════════════════════════╗
 ║                       AI ETHICS COMPLIANCE REPORT                              ║
-║                                  RAISE                                         ║
-║              Research Accountability and Integrity for Sustainable Ethics      ║
+║                                  ALIGN                                         ║
+║           AI Lifecycle Integrity and Governance Navigator                      ║
 ╚═══════════════════════════════════════════════════════════════════════════════╝
 
 Report Generated: ${new Date(report.generatedAt).toLocaleString()}
@@ -168,16 +204,16 @@ Report Generated: ${new Date(report.generatedAt).toLocaleString()}
 │  EXECUTIVE SUMMARY                                                             │
 └───────────────────────────────────────────────────────────────────────────────┘
 
-  COMPLIANCE STATUS: ${report.completionRate}%
+  OVERALL COMPLIANCE: ${report.completionRate}%  (${completedCount}/${totalCount} total checkpoints)${report.reportRole !== 'compliance' ? `
+  YOUR TASKS:         ${report.myCompletionRate}%  (${report.myCheckpointsCompleted}/${report.myCheckpointsCount} assigned to you)` : ''}
   `;
 
     const progressBarLength = 40;
     const filledLength = Math.round((report.completionRate / 100) * progressBarLength);
     const progressBar = '\u2588'.repeat(filledLength) + '\u2591'.repeat(progressBarLength - filledLength);
     text += `
-  Progress: [${progressBar}] ${report.completionRate}%
+  Progress: [${progressBar}] ${report.completionRate}% overall
 
-  Checkpoints:       ${completedCount} completed / ${totalCount} total
   Decisions Logged:  ${report.decisions.length}
 
   RISK LEVEL:        ${risk.overallRisk.toUpperCase()}
@@ -224,7 +260,8 @@ Report Generated: ${new Date(report.generatedAt).toLocaleString()}
         const date = cp.completedAt
           ? `Completed: ${new Date(cp.completedAt).toLocaleDateString()}`
           : 'Not yet completed';
-        text += `${statusIcon} ${statusLabel} ${cp.label}\n`;
+        const assignedLabel = cp.assignedTo === 'pi' ? 'PI' : cp.assignedTo === 'student' ? 'Student' : 'Compliance';
+        text += `${statusIcon} ${statusLabel} ${cp.label} [${assignedLabel}]\n`;
         text += `                 ${date}\n`;
       });
     });
@@ -286,7 +323,7 @@ Report Generated: ${new Date(report.generatedAt).toLocaleString()}
 ╔═══════════════════════════════════════════════════════════════════════════════╗
 ║                              END OF REPORT                                     ║
 ╠═══════════════════════════════════════════════════════════════════════════════╣
-║  Generated by RAISE - AI Research Compliance Tracker                           ║
+║  Generated by ALIGN - AI Lifecycle Integrity and Governance Navigator          ║
 ║  This report documents AI ethics compliance status for research oversight.     ║
 ║  For questions about compliance requirements, contact your IRB office.         ║
 ╚═══════════════════════════════════════════════════════════════════════════════╝
@@ -351,7 +388,7 @@ ${dataHandling}`;
     statement += `
 
 ---
-Generated using RAISE (Research Accountability and Integrity for Sustainable Ethics)
+Generated using ALIGN (AI Lifecycle Integrity and Governance Navigator)
 Date: ${new Date().toLocaleDateString()}`;
 
     setGeneratedDisclosure(statement);
@@ -359,7 +396,12 @@ Date: ${new Date().toLocaleDateString()}`;
 
   function copyDisclosure() {
     navigator.clipboard.writeText(generatedDisclosure);
-    alert('Disclosure statement copied to clipboard!');
+    showToast('Copied to clipboard ✓');
+  }
+
+  function showToast(message) {
+    setToast(message);
+    setTimeout(() => setToast(''), 2500);
   }
 
   // Filter checkpoints based on role
@@ -423,6 +465,7 @@ Date: ${new Date().toLocaleDateString()}`;
 
   return (
     <div className="project-dashboard">
+      {toast && <div className="toast-notification">{toast}</div>}
       <header className="project-dashboard-header">
         <div className="header-top-row">
           <button className="back-btn" onClick={onBack}>&larr; Back to Projects</button>
@@ -439,11 +482,16 @@ Date: ${new Date().toLocaleDateString()}`;
               Created {new Date(project.createdAt).toLocaleDateString()} &bull; {project.description || 'No description'}
             </p>
           </div>
-          <button className="btn-primary" onClick={generateReport}>
-            {role === 'compliance' ? 'Generate Audit Report' :
-             role === 'student' ? 'Generate Draft Report' :
-             'Generate Report'}
-          </button>
+          <div className="header-report-actions">
+            <button className="btn-secondary" onClick={handleExportCSV}>
+              Export CSV
+            </button>
+            <button className="btn-primary" onClick={generateReport}>
+              {role === 'compliance' ? 'Generate Audit Report' :
+               role === 'student' ? 'Generate Draft Report' :
+               'Generate Report'}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -462,7 +510,7 @@ Date: ${new Date().toLocaleDateString()}`;
           </svg>
           <div className="progress-text">
             <span className="progress-number">{completion}%</span>
-            <span className="progress-label">Complete</span>
+            <span className="progress-label">{role === 'compliance' ? 'Complete' : 'Your Tasks'}</span>
           </div>
         </div>
         <div className="progress-stats">
@@ -480,7 +528,7 @@ Date: ${new Date().toLocaleDateString()}`;
           </div>
           {role !== 'compliance' && (
             <div className="stat overall-stat">
-              <span className="stat-value">{allCheckpoints.filter(c => c.completed).length}/{allCheckpoints.length}</span>
+              <span className="stat-value">{getCompletionPercentage()}%</span>
               <span className="stat-label">Overall Project</span>
             </div>
           )}
@@ -529,6 +577,24 @@ Date: ${new Date().toLocaleDateString()}`;
             Disclosure Generator
           </button>
         )}
+        <button
+          className={`tab ${activeTab === 'ethics' ? 'active' : ''}`}
+          onClick={() => setActiveTab('ethics')}
+        >
+          Ethics Assistant
+        </button>
+        <button
+          className={`tab ${activeTab === 'assessment' ? 'active' : ''}`}
+          onClick={() => setActiveTab('assessment')}
+        >
+          Assessment
+        </button>
+        <button
+          className={`tab ${activeTab === 'documents' ? 'active' : ''}`}
+          onClick={() => { setSelectedTemplate(null); setActiveTab('documents'); }}
+        >
+          Documents
+        </button>
       </div>
 
       {/* Checkpoints Tab */}
@@ -813,6 +879,63 @@ Date: ${new Date().toLocaleDateString()}`;
               </div>
               <pre className="disclosure-text">{generatedDisclosure}</pre>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Ethics Assistant Tab */}
+      {activeTab === 'ethics' && (
+        <div className="ethics-tab-section">
+          <EthicsAssistant onBack={() => setActiveTab('checkpoints')} />
+        </div>
+      )}
+
+      {/* Assessment Tab */}
+      {activeTab === 'assessment' && (
+        <div className="assessment-tab-section">
+          <Assessment onBack={() => setActiveTab('checkpoints')} />
+        </div>
+      )}
+
+      {/* Documents Tab */}
+      {activeTab === 'documents' && (
+        <div className="documents-section">
+          {selectedTemplate ? (
+            <DocumentGenerator
+              templateKey={selectedTemplate.key}
+              templateName={selectedTemplate.name}
+              onBack={() => setSelectedTemplate(null)}
+            />
+          ) : (
+            <>
+              <div className="section-header">
+                <h2>Document Templates</h2>
+              </div>
+              <div className="documents-explainer">
+                <p>Generate compliance documents — IRB amendments, FERPA checklists, and disclosure statements — tailored for your research context.</p>
+              </div>
+              {loadingTemplates ? (
+                <div className="loading">Loading templates...</div>
+              ) : (
+                <div className="templates-grid">
+                  {templates.map(template => (
+                    <div
+                      key={template.key}
+                      className="template-card"
+                      onClick={() => setSelectedTemplate(template)}
+                    >
+                      <div className="template-icon">📄</div>
+                      <h3>{template.name}</h3>
+                      <p>{template.description}</p>
+                      <button className="btn-secondary template-btn">Generate →</button>
+                    </div>
+                  ))}
+                  {templates.length === 0 && (
+                    <p className="empty-templates">No templates available.</p>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

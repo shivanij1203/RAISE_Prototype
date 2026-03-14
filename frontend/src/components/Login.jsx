@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { loginUser, registerUser } from '../services/api';
 
-function Login({ onLogin }) {
+function Login({ onLogin, onBack }) {
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -13,6 +13,12 @@ function Login({ onLogin }) {
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+
+    if (isRegister && !email.toLowerCase().endsWith('@usf.edu')) {
+      setError('Registration is restricted to USF email addresses (@usf.edu).');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -33,8 +39,14 @@ function Login({ onLogin }) {
   return (
     <div className="login-container">
       <div className="login-card">
+        {onBack && (
+          <button className="btn-back-landing" onClick={onBack}>← Back</button>
+        )}
+        <div className="login-logo">
+          <span className="logo-badge">ALIGN</span>
+        </div>
         <h1>{isRegister ? 'Create Account' : 'Sign In'}</h1>
-        <p>RAISE Ethics Toolkit</p>
+        <p>ALIGN Ethics Toolkit — {isRegister ? 'USF email required' : 'Welcome back'}</p>
 
         <form onSubmit={handleSubmit}>
           {isRegister && (

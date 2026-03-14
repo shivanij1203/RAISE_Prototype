@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import Landing from './components/Landing';
 import Login from './components/Login';
 import ProjectList from './components/ProjectList';
 import ProjectDashboard from './components/ProjectDashboard';
@@ -17,26 +18,27 @@ function App() {
   const [selectedProject, setSelectedProject] = useState(null);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('raise_user');
+    const savedUser = localStorage.getItem('align_user');
     if (savedUser) {
       const user = JSON.parse(savedUser);
       setCurrentUser(user);
       setUserRole(mapRole(user.role));
       setCurrentView('projects');
     } else {
-      setCurrentView('login');
+      setCurrentView('landing');
     }
   }, []);
 
   function handleLogin(user) {
-    localStorage.setItem('raise_user', JSON.stringify(user));
+    localStorage.setItem('align_user', JSON.stringify(user));
     setCurrentUser(user);
     setUserRole(mapRole(user.role));
     setCurrentView('projects');
   }
 
   function handleLogout() {
-    localStorage.removeItem('raise_user');
+    localStorage.removeItem('align_user');
+    setCurrentView('landing');
     setCurrentUser(null);
     setUserRole(null);
     setCurrentView('login');
@@ -56,8 +58,12 @@ function App() {
     return <div className="loading">Loading...</div>;
   }
 
+  if (currentView === 'landing') {
+    return <Landing onGetStarted={() => setCurrentView('login')} />;
+  }
+
   if (currentView === 'login') {
-    return <Login onLogin={handleLogin} />;
+    return <Login onLogin={handleLogin} onBack={() => setCurrentView('landing')} />;
   }
 
   if (currentView === 'project-detail' && selectedProject) {

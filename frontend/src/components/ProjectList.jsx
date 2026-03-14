@@ -4,9 +4,11 @@ import { fetchProjects, createProject } from '../services/api';
 function ProjectList({ role, onSelectProject, onLogout }) {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newProject, setNewProject] = useState({ name: '', description: '', aiUseCase: '' });
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
 
   useEffect(() => {
     loadProjects();
@@ -18,6 +20,7 @@ function ProjectList({ role, onSelectProject, onLogout }) {
       setProjects(data);
     } catch (err) {
       console.error('Failed to load projects', err);
+      setLoadError('Could not load projects. Please refresh the page.');
     } finally {
       setLoading(false);
     }
@@ -27,6 +30,7 @@ function ProjectList({ role, onSelectProject, onLogout }) {
     if (!newProject.name.trim() || !newProject.aiUseCase) return;
 
     setCreating(true);
+    setCreateError('');
     try {
       const project = await createProject(
         newProject.name,
@@ -39,7 +43,7 @@ function ProjectList({ role, onSelectProject, onLogout }) {
       onSelectProject(project);
     } catch (err) {
       console.error('Failed to create project', err);
-      alert('Error creating project. Please try again.');
+      setCreateError(err.response?.data?.error || 'Error creating project. Please try again.');
     } finally {
       setCreating(false);
     }
@@ -67,14 +71,35 @@ function ProjectList({ role, onSelectProject, onLogout }) {
   ];
 
   if (loading) {
-    return <div className="loading">Loading projects...</div>;
+    return (
+      <div className="project-list">
+        <header className="project-list-header">
+          <div className="header-left">
+            <div className="header-badge">ALIGN</div>
+            <div>
+              <h1>My Projects</h1>
+              <p className="role-indicator">Loading...</p>
+            </div>
+          </div>
+        </header>
+        <div className="projects-grid">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="project-card skeleton-card">
+              <div className="skeleton-line skeleton-title"></div>
+              <div className="skeleton-line skeleton-text"></div>
+              <div className="skeleton-line skeleton-bar"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="project-list">
       <header className="project-list-header">
         <div className="header-left">
-          <div className="header-badge">RAISE</div>
+          <div className="header-badge">ALIGN</div>
           <div>
             <h1>My Projects</h1>
             <p className="role-indicator">
@@ -90,6 +115,13 @@ function ProjectList({ role, onSelectProject, onLogout }) {
           </button>
         </div>
       </header>
+
+      {loadError && (
+        <div className="error-banner">
+          {loadError}
+          <button className="error-retry" onClick={loadProjects}>Retry</button>
+        </div>
+      )}
 
       {projects.length === 0 ? (
         <div className="empty-state">
@@ -190,8 +222,10 @@ function ProjectList({ role, onSelectProject, onLogout }) {
               <p className="form-hint">This determines which compliance checkpoints are relevant</p>
             </div>
 
+            {createError && <p className="error-text">{createError}</p>}
+
             <div className="modal-actions">
-              <button className="btn-secondary" onClick={() => setShowCreateModal(false)}>
+              <button className="btn-secondary" onClick={() => { setShowCreateModal(false); setCreateError(''); }}>
                 Cancel
               </button>
               <button
