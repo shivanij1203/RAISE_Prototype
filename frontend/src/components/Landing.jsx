@@ -6,11 +6,14 @@ function Landing({ onGetStarted }) {
       <nav className="landing-nav">
         <div className="landing-nav-inner">
           <div className="landing-logo">
-            <span className="logo-badge">ALIGN</span>
-            <span className="logo-text">Ethics Toolkit</span>
+            <img src="/usf-logo.svg" alt="University of South Florida" className="usf-logo-nav" />
+            <div className="logo-text-group">
+              <span className="logo-university-name">University of South Florida</span>
+              <span className="logo-divider"></span>
+              <span className="logo-app-name">ALIGN Ethics Toolkit</span>
+            </div>
           </div>
           <div className="nav-right">
-            <span className="nav-usf-label">University of South Florida</span>
             <button className="btn-nav-signin" onClick={onGetStarted}>Sign In →</button>
           </div>
         </div>
@@ -20,18 +23,17 @@ function Landing({ onGetStarted }) {
       <section className="landing-hero">
         <div className="hero-bg-pattern"></div>
         <div className="hero-inner">
-          <div className="hero-tag">
-            <span className="tag-dot"></span>
-            USF · AI Ethics &amp; Compliance
+          <div className="hero-product-label">
+            <span className="hero-product-name">ALIGN</span>
+            <span className="hero-product-expanded">AI Lifecycle Integrity &amp; Governance Navigator</span>
           </div>
           <h1 className="hero-title">
             Navigate AI Ethics<br />
             <span className="hero-title-accent">With Confidence</span>
           </h1>
           <p className="hero-subtitle">
-            ALIGN guides researchers and teams through compliance requirements,
-            IRB obligations, and ethical AI use — so you can focus on your
-            work, not the paperwork.
+            Structured compliance guidance for researchers and teams —
+            from IRB review to disclosure documentation.
           </p>
           <div className="hero-actions">
             <button className="btn-hero-primary" onClick={onGetStarted}>
@@ -258,16 +260,18 @@ function Landing({ onGetStarted }) {
         <div className="footer-inner">
           <div className="footer-top">
             <div className="footer-brand">
-              <span className="logo-badge small">ALIGN</span>
-              <div>
-                <div className="footer-brand-name">AI Lifecycle Integrity &amp; Governance Navigator</div>
-                <div className="footer-brand-sub">University of South Florida</div>
+              <img src="/usf-logo.svg" alt="University of South Florida" className="usf-logo-footer" />
+              <div className="footer-brand-text">
+                <div className="footer-university-name">University of South Florida</div>
+                <div className="footer-app-name">ALIGN Ethics Toolkit</div>
               </div>
+            </div>
+            <div className="footer-contact">
+              <div className="footer-address">4202 E. Fowler Avenue, Tampa, FL 33620</div>
             </div>
           </div>
           <div className="footer-bottom">
-            <p>Prototype — part of ongoing research at USF's Behavioral AI Lab. Access restricted to USF accounts (@usf.edu).</p>
-            <p>© 2025 University of South Florida · ALIGN Ethics Toolkit</p>
+            <p>Copyright &copy; 2026, University of South Florida. All rights reserved.</p>
           </div>
         </div>
       </footer>
