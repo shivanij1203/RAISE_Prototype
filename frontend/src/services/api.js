@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:8000/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
   withCredentials: true,
 });
 
@@ -53,6 +53,11 @@ export async function toggleCheckpoint(projectId, checkpointId) {
 
 export async function logDecision(projectId, data) {
   const res = await api.post(`/projects/${projectId}/decisions`, data);
+  return res.data;
+}
+
+export async function exportProjectCSV(projectId) {
+  const res = await api.get(`/projects/${projectId}/export`, { responseType: 'blob' });
   return res.data;
 }
 

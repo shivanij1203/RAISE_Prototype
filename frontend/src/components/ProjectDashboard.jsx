@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import html2pdf from 'html2pdf.js';
 import { toggleCheckpoint, logDecision, fetchProject, fetchTemplates, exportProjectCSV } from '../services/api';
 import EthicsAssistant from './EthicsAssistant';
 import Assessment from './Assessment';
@@ -145,33 +146,12 @@ function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpda
   }
 
   function generateReport() {
-    const report = {
-      projectName: project.name,
-      generatedAt: new Date().toISOString(),
-      checkpoints: project.checkpoints,
-      decisions: project.decisions || [],
-      completionRate: getCompletionPercentage(),
-      myCompletionRate: getMyCompletionPercentage(),
-      reportRole: role,
-      myCheckpointsCompleted: myCheckpoints.filter(c => c.completed).length,
-      myCheckpointsCount: myCheckpoints.length,
-    };
-
-    const reportText = formatReportAsText(report);
-    const blob = new Blob([reportText], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${project.name.replace(/\s+/g, '_')}_Ethics_Report.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function formatReportAsText(report) {
-    const completedCount = report.checkpoints.filter(c => c.completed).length;
-    const totalCount = report.checkpoints.length;
+    const completedCount = project.checkpoints.filter(c => c.completed).length;
+    const totalCount = project.checkpoints.length;
     const pendingCount = totalCount - completedCount;
+    const pct = getCompletionPercentage();
     const risk = getRiskAssessment();
+    const decisions = project.decisions || [];
 
     const useCaseLabels = {
       'data_analysis': 'Quantitative Data Analysis',
@@ -182,154 +162,175 @@ function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpda
       'other': 'Other'
     };
 
-    let text = `
-╔═══════════════════════════════════════════════════════════════════════════════╗
-║                       AI ETHICS COMPLIANCE REPORT                              ║
-║                                  ALIGN                                         ║
-║           AI Lifecycle Integrity and Governance Navigator                      ║
-╚═══════════════════════════════════════════════════════════════════════════════╝
+    const riskColors = { low: '#16a34a', medium: '#d97706', high: '#dc2626' };
+    const riskLabels = {
+      low: 'Low Risk — No critical compliance gaps found.',
+      medium: 'Medium Risk — Some items need your attention before this project is fully compliant.',
+      high: 'High Risk — Critical compliance steps are missing. Please address these urgently.'
+    };
 
-Report Generated: ${new Date(report.generatedAt).toLocaleString()}
+    const summaryLine = pct === 100
+      ? 'All compliance steps are complete. This project has passed its ethics review.'
+      : `This project is ${pct}% compliant. ${pendingCount} item${pendingCount > 1 ? 's' : ''} still need${pendingCount === 1 ? 's' : ''} attention.`;
 
-┌───────────────────────────────────────────────────────────────────────────────┐
-│  PROJECT INFORMATION                                                           │
-└───────────────────────────────────────────────────────────────────────────────┘
+    const categories = [...new Set(project.checkpoints.map(c => c.category))];
 
-  Project Name:      ${report.projectName}
-  AI Use Case:       ${useCaseLabels[project.aiUseCase] || 'Not specified'}
-  Description:       ${project.description || 'No description provided'}
-  Created:           ${new Date(project.createdAt).toLocaleDateString()}
+    const html = `
+    <div style="font-family: 'Helvetica Neue', Arial, sans-serif; color: #1e293b; line-height: 1.5; padding: 0;">
+      <!-- HEADER -->
+      <div style="background: #006747; color: #fff; padding: 32px 36px; border-radius: 0;">
+        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.7; margin-bottom: 4px;">AI Ethics Compliance Report</div>
+        <div style="font-size: 28px; font-weight: 800; letter-spacing: -0.5px;">${project.name}</div>
+        <div style="font-size: 12px; opacity: 0.6; margin-top: 6px;">
+          ${useCaseLabels[project.aiUseCase] || 'Not specified'} &nbsp;|&nbsp;
+          Created ${new Date(project.createdAt).toLocaleDateString()} &nbsp;|&nbsp;
+          Report generated ${new Date().toLocaleDateString()}
+        </div>
+      </div>
 
-┌───────────────────────────────────────────────────────────────────────────────┐
-│  EXECUTIVE SUMMARY                                                             │
-└───────────────────────────────────────────────────────────────────────────────┘
+      <!-- AT A GLANCE -->
+      <div style="padding: 28px 36px 20px;">
+        <div style="font-size: 16px; font-weight: 700; color: #006747; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #006747; padding-bottom: 6px;">
+          At a Glance
+        </div>
+        <div style="font-size: 15px; margin-bottom: 14px; color: #334155;">
+          ${summaryLine}
+        </div>
+        <!-- Progress bar -->
+        <div style="background: #e2e8f0; border-radius: 6px; height: 14px; overflow: hidden; margin-bottom: 10px;">
+          <div style="background: ${pct === 100 ? '#16a34a' : pct >= 50 ? '#d97706' : '#94a3b8'}; height: 100%; width: ${pct}%; border-radius: 6px;"></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-bottom: 18px;">
+          <span>${completedCount} of ${totalCount} steps complete</span>
+          <span style="font-weight: 700; color: ${pct === 100 ? '#16a34a' : '#1e293b'};">${pct}%</span>
+        </div>
+        <!-- Risk + Stats row -->
+        <div style="display: flex; gap: 16px; margin-bottom: 6px;">
+          <div style="flex: 1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px;">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 4px;">Risk Level</div>
+            <div style="font-size: 16px; font-weight: 700; color: ${riskColors[risk.overallRisk]};">${risk.overallRisk.charAt(0).toUpperCase() + risk.overallRisk.slice(1)}</div>
+            <div style="font-size: 12px; color: #64748b; margin-top: 2px;">${riskLabels[risk.overallRisk]}</div>
+          </div>
+          <div style="flex: 1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px;">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 4px;">Decisions Logged</div>
+            <div style="font-size: 16px; font-weight: 700;">${decisions.length}</div>
+            <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Each decision creates a timestamped record in your audit trail.</div>
+          </div>
+        </div>
+      </div>
 
-  OVERALL COMPLIANCE: ${report.completionRate}%  (${completedCount}/${totalCount} total checkpoints)${report.reportRole !== 'compliance' ? `
-  YOUR TASKS:         ${report.myCompletionRate}%  (${report.myCheckpointsCompleted}/${report.myCheckpointsCount} assigned to you)` : ''}
-  `;
+      <!-- WHAT ARE COMPLIANCE CHECKPOINTS -->
+      <div style="padding: 0 36px 10px;">
+        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px 16px; font-size: 12px; color: #166534; line-height: 1.6;">
+          <strong>What is this report?</strong> This document tracks whether your research project follows ethical guidelines for using AI. Each "checkpoint" is a specific step — like confirming IRB approval or planning how to disclose AI use. When all checkpoints are complete, your project meets compliance standards.
+        </div>
+      </div>
 
-    const progressBarLength = 40;
-    const filledLength = Math.round((report.completionRate / 100) * progressBarLength);
-    const progressBar = '\u2588'.repeat(filledLength) + '\u2591'.repeat(progressBarLength - filledLength);
-    text += `
-  Progress: [${progressBar}] ${report.completionRate}% overall
+      <!-- CHECKPOINT DETAIL BY CATEGORY -->
+      <div style="padding: 20px 36px;">
+        <div style="font-size: 16px; font-weight: 700; color: #006747; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #006747; padding-bottom: 6px;">
+          Compliance Checklist
+        </div>
+        ${categories.map(category => {
+          const catCps = project.checkpoints.filter(c => c.category === category);
+          const catDone = catCps.filter(c => c.completed).length;
+          return `
+          <div style="margin-bottom: 18px;">
+            <div style="font-size: 13px; font-weight: 700; color: #475569; margin-bottom: 8px; display: flex; justify-content: space-between;">
+              <span>${category}</span>
+              <span style="color: #94a3b8;">${catDone}/${catCps.length}</span>
+            </div>
+            ${catCps.map(cp => {
+              const done = cp.completed;
+              const assignedLabel = cp.assignedTo === 'pi' ? 'Faculty / PI' : cp.assignedTo === 'student' ? 'Student' : 'Compliance';
+              return `
+              <div style="display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f1f5f9;">
+                <div style="width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; margin-top: 1px;
+                  background: ${done ? '#dcfce7' : '#fef2f2'}; color: ${done ? '#16a34a' : '#dc2626'}; border: 1.5px solid ${done ? '#86efac' : '#fecaca'};">
+                  ${done ? '&#10003;' : '!'}
+                </div>
+                <div style="flex: 1;">
+                  <div style="font-size: 13px; font-weight: 600; color: #1e293b;">${cp.label}</div>
+                  <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">
+                    Assigned to: ${assignedLabel}
+                    ${done && cp.completedAt ? ` &nbsp;|&nbsp; Completed: ${new Date(cp.completedAt).toLocaleDateString()}` : ''}
+                    ${!done ? ' &nbsp;|&nbsp; <span style="color: #dc2626; font-weight: 600;">Pending</span>' : ''}
+                  </div>
+                  ${cp.what ? `<div style="font-size: 11px; color: #64748b; margin-top: 4px;">${cp.what}</div>` : ''}
+                </div>
+              </div>`;
+            }).join('')}
+          </div>`;
+        }).join('')}
+      </div>
 
-  Decisions Logged:  ${report.decisions.length}
+      <!-- DECISION AUDIT LOG -->
+      <div style="padding: 10px 36px 20px;">
+        <div style="font-size: 16px; font-weight: 700; color: #006747; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #006747; padding-bottom: 6px;">
+          Decision Audit Trail
+        </div>
+        <div style="font-size: 12px; color: #64748b; margin-bottom: 14px;">
+          Every time a team member documents what they did for a compliance step, it appears here with a timestamp — creating a permanent record.
+        </div>
+        ${decisions.length === 0
+          ? `<div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; font-size: 13px; color: #94a3b8; text-align: center;">No decisions have been logged yet. Log decisions inside the project to build your audit trail.</div>`
+          : decisions.map((d, i) => {
+            const cpLabel = project.checkpoints.find(c => c.id === d.checkpoint)?.label || 'General';
+            return `
+            <div style="border-left: 3px solid #006747; padding: 10px 14px; margin-bottom: 10px; background: #f8fafc; border-radius: 0 6px 6px 0;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <span style="font-size: 12px; font-weight: 700; color: #006747;">${cpLabel}</span>
+                <span style="font-size: 11px; color: #94a3b8;">${new Date(d.loggedAt).toLocaleDateString()} at ${new Date(d.loggedAt).toLocaleTimeString()}</span>
+              </div>
+              <div style="font-size: 13px; color: #334155;">${d.description}</div>
+              ${d.notes ? `<div style="font-size: 12px; color: #64748b; margin-top: 4px;">Note: ${d.notes}</div>` : ''}
+              ${d.proofValue ? `<div style="font-size: 11px; color: #64748b; margin-top: 3px;">Evidence: ${d.proofValue}</div>` : ''}
+            </div>`;
+          }).join('')
+        }
+      </div>
 
-  RISK LEVEL:        ${risk.overallRisk.toUpperCase()}
-`;
+      <!-- ACTION ITEMS -->
+      ${pendingCount > 0 ? `
+      <div style="padding: 10px 36px 20px;">
+        <div style="font-size: 16px; font-weight: 700; color: #dc2626; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #dc2626; padding-bottom: 6px;">
+          Action Required
+        </div>
+        <div style="font-size: 12px; color: #64748b; margin-bottom: 12px;">
+          These steps must be completed before this project is fully compliant.
+        </div>
+        ${project.checkpoints.filter(c => !c.completed).map((cp, i) => `
+          <div style="padding: 10px 14px; margin-bottom: 8px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px;">
+            <div style="font-size: 13px; font-weight: 600; color: #991b1b;">${i + 1}. ${cp.label}</div>
+            ${cp.how ? `<div style="font-size: 12px; color: #64748b; margin-top: 4px;"><strong>How:</strong> ${cp.how}</div>` : ''}
+          </div>
+        `).join('')}
+      </div>` : ''}
 
-    if (risk.risks.length > 0) {
-      text += `\n  Risk Factors:\n`;
-      risk.risks.forEach(r => {
-        text += `    \u2022 [${r.level.toUpperCase()}] ${r.message}\n`;
-      });
-    } else {
-      text += `\n  \u2713 No outstanding compliance risks identified\n`;
-    }
+      <!-- FOOTER -->
+      <div style="background: #f1f5f9; padding: 20px 36px; margin-top: 10px; border-top: 1px solid #e2e8f0;">
+        <div style="font-size: 11px; color: #94a3b8; text-align: center; line-height: 1.7;">
+          Generated by <strong style="color: #64748b;">ALIGN</strong> — AI Lifecycle Integrity and Governance Navigator<br/>
+          University of South Florida &nbsp;|&nbsp; ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}<br/>
+          For compliance questions, contact your IRB office.
+        </div>
+      </div>
+    </div>`;
 
-    if (report.completionRate === 100) {
-      text += `
-  \u2501\u2501\u2501 ALL COMPLIANCE CHECKPOINTS COMPLETE \u2501\u2501\u2501
-`;
-    } else if (pendingCount > 0) {
-      text += `
-  WARNING: ${pendingCount} CHECKPOINT(S) PENDING - ACTION REQUIRED
-`;
-    }
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    document.body.appendChild(container);
 
-    text += `
-┌───────────────────────────────────────────────────────────────────────────────┐
-│  CHECKPOINT STATUS DETAIL                                                      │
-└───────────────────────────────────────────────────────────────────────────────┘
-  Legend: \u2713 = Completed | \u25CB = Pending
-`;
-
-    const categories = [...new Set(report.checkpoints.map(c => c.category))];
-    categories.forEach(category => {
-      const catCheckpoints = report.checkpoints.filter(c => c.category === category);
-      const catCompleted = catCheckpoints.filter(c => c.completed).length;
-      const catPercent = Math.round((catCompleted / catCheckpoints.length) * 100);
-
-      text += `
-  --- ${category.toUpperCase()} (${catCompleted}/${catCheckpoints.length} - ${catPercent}%) ---
-`;
-      catCheckpoints.forEach(cp => {
-        const statusIcon = cp.completed ? '  \u2713' : '  \u25CB';
-        const statusLabel = cp.completed ? '[DONE]   ' : '[PENDING]';
-        const date = cp.completedAt
-          ? `Completed: ${new Date(cp.completedAt).toLocaleDateString()}`
-          : 'Not yet completed';
-        const assignedLabel = cp.assignedTo === 'pi' ? 'PI' : cp.assignedTo === 'student' ? 'Student' : 'Compliance';
-        text += `${statusIcon} ${statusLabel} ${cp.label} [${assignedLabel}]\n`;
-        text += `                 ${date}\n`;
-      });
+    html2pdf().set({
+      margin: 0,
+      filename: `${project.name.replace(/\s+/g, '_')}_Compliance_Report.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+    }).from(container).save().then(() => {
+      document.body.removeChild(container);
     });
-
-    text += `
-┌───────────────────────────────────────────────────────────────────────────────┐
-│  DECISION AUDIT LOG                                                            │
-└───────────────────────────────────────────────────────────────────────────────┘
-`;
-
-    if (report.decisions.length === 0) {
-      text += `
-  No decisions have been logged for this project yet.
-
-  Tip: Log decisions to create an audit trail for compliance documentation.
-`;
-    } else {
-      text += `
-  Total Decisions Recorded: ${report.decisions.length}
-`;
-      report.decisions.forEach((decision, index) => {
-        const checkpointLabel = project.checkpoints.find(c => c.id === decision.checkpoint)?.label || 'General';
-        let evidenceText = '';
-        if (decision.proofType && decision.proofValue) {
-          evidenceText = decision.proofType === 'url'
-            ? `\n  Evidence:    ${decision.proofValue}`
-            : `\n  File Ref:    ${decision.proofValue}`;
-        }
-        text += `
-  ─────────────────────────────────────────────────────────────────────────────
-  DECISION #${index + 1}
-  Date:        ${new Date(decision.loggedAt).toLocaleDateString()} at ${new Date(decision.loggedAt).toLocaleTimeString()}
-  Checkpoint:  ${checkpointLabel}
-  Decision:    ${decision.description}${decision.notes ? `\n  Notes:       ${decision.notes}` : ''}${evidenceText}
-`;
-      });
-    }
-
-    const incompleteCheckpoints = report.checkpoints.filter(c => !c.completed);
-    if (incompleteCheckpoints.length > 0) {
-      text += `
-┌───────────────────────────────────────────────────────────────────────────────┐
-│  REQUIRED ACTION ITEMS                                                         │
-└───────────────────────────────────────────────────────────────────────────────┘
-
-  The following items require attention before this project is fully compliant:
-
-`;
-      incompleteCheckpoints.forEach((cp, index) => {
-        text += `  ${index + 1}. ${cp.label}\n`;
-        if (cp.how) {
-          text += `     How to complete: ${cp.how}\n`;
-        }
-        text += '\n';
-      });
-    }
-
-    text += `
-╔═══════════════════════════════════════════════════════════════════════════════╗
-║                              END OF REPORT                                     ║
-╠═══════════════════════════════════════════════════════════════════════════════╣
-║  Generated by ALIGN - AI Lifecycle Integrity and Governance Navigator          ║
-║  This report documents AI ethics compliance status for research oversight.     ║
-║  For questions about compliance requirements, contact your IRB office.         ║
-╚═══════════════════════════════════════════════════════════════════════════════╝
-`;
-
-    return text;
   }
 
   function getCompletionPercentage() {
