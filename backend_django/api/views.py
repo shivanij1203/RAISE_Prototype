@@ -141,6 +141,150 @@ def generate_checkpoints_for_use_case(ai_use_case):
         },
     ]
 
+    grading_checkpoints = [
+        {
+            'checkpoint_id': 'grading_fairness',
+            'label': 'Grading Fairness Audit',
+            'category': 'Assessment',
+            'assigned_to': 'pi',
+            'what': 'Verify AI grading produces equitable outcomes across student demographics.',
+            'why': 'AI grading tools can carry biases from training data, leading to unfair outcomes for certain student groups.',
+            'how': 'Compare AI-generated grades across demographic subgroups. Check for statistically significant disparities. Document findings and any corrections made.',
+        },
+        {
+            'checkpoint_id': 'ferpa_compliance',
+            'label': 'FERPA Compliance Verified',
+            'category': 'Regulatory',
+            'assigned_to': 'pi',
+            'what': 'Confirm student records processed by AI are handled per FERPA requirements.',
+            'why': 'Student education records are protected under FERPA. Sending them to external AI services may violate federal law.',
+            'how': 'Verify AI processing happens on FERPA-compliant systems. Check vendor data processing agreements. Confirm no student data is retained by third-party AI services.',
+        },
+        {
+            'checkpoint_id': 'grading_transparency',
+            'label': 'Grading Criteria Disclosed to Students',
+            'category': 'Transparency',
+            'assigned_to': 'pi',
+            'what': 'Ensure students are informed that AI is used in the grading process.',
+            'why': 'Students have a right to know how their work is evaluated. Transparency builds trust and meets institutional policy requirements.',
+            'how': 'Update your syllabus to include AI grading disclosure. Communicate in class and provide an opt-out or appeal mechanism if required by policy.',
+        },
+        {
+            'checkpoint_id': 'human_override',
+            'label': 'Human Override Process Defined',
+            'category': 'Assessment',
+            'assigned_to': 'pi',
+            'what': 'Define a process for students to appeal or request human review of AI-assisted grades.',
+            'why': 'Students must have recourse when they believe an AI grade is incorrect. This is both an ethical and often institutional requirement.',
+            'how': 'Establish a clear appeal window (e.g., 7 days). Document the process in the syllabus. Ensure a human instructor reviews all appeals.',
+        },
+        {
+            'checkpoint_id': 'grading_validation',
+            'label': 'AI Grading Output Validated',
+            'category': 'Assessment',
+            'assigned_to': 'pi',
+            'what': 'Sample and validate AI-generated grades against instructor judgment.',
+            'why': 'AI grading must be verified for accuracy before being applied at scale. Unvalidated AI grades risk harming student outcomes.',
+            'how': 'Review a random 20-25% sample of AI grades. Compare with your own assessment. Document agreement rate and any adjustments made.',
+        },
+    ]
+
+    teaching_checkpoints = [
+        {
+            'checkpoint_id': 'content_accuracy',
+            'label': 'Content Accuracy Verified',
+            'category': 'Quality',
+            'assigned_to': 'pi',
+            'what': 'Review AI-generated teaching materials for factual accuracy.',
+            'why': 'AI can produce plausible-sounding but incorrect information. Distributing inaccurate materials undermines educational quality.',
+            'how': 'Have a subject matter expert review all AI-generated content. Cross-reference claims with authoritative sources. Flag and correct any inaccuracies.',
+        },
+        {
+            'checkpoint_id': 'accessibility_check',
+            'label': 'Accessibility Standards Met',
+            'category': 'Quality',
+            'assigned_to': 'pi',
+            'what': 'Ensure AI-generated materials meet accessibility requirements (ADA/Section 508).',
+            'why': 'Institutions must provide accessible materials to all students. AI-generated content often lacks proper accessibility features.',
+            'how': 'Test materials with screen readers. Ensure alt text, proper heading structure, and sufficient color contrast. Follow WCAG 2.1 AA guidelines.',
+        },
+        {
+            'checkpoint_id': 'ip_review',
+            'label': 'Intellectual Property Reviewed',
+            'category': 'Regulatory',
+            'assigned_to': 'pi',
+            'what': 'Confirm AI-generated content does not infringe on existing copyrights.',
+            'why': 'AI models trained on copyrighted material may reproduce protected content. Using such content in teaching materials creates legal risk.',
+            'how': 'Check AI output for close similarity to known sources. Understand your institution\'s IP policy regarding AI-generated content. Add attribution where appropriate.',
+        },
+        {
+            'checkpoint_id': 'teaching_disclosure',
+            'label': 'AI Use Disclosed to Students',
+            'category': 'Transparency',
+            'assigned_to': 'pi',
+            'what': 'Inform students that course materials include AI-generated content.',
+            'why': 'Transparency about AI use in teaching sets expectations and models responsible AI practices for students.',
+            'how': 'Add a disclosure statement to your syllabus. Label AI-generated materials clearly. Discuss AI\'s role in course material creation during the first class.',
+        },
+        {
+            'checkpoint_id': 'material_review_cycle',
+            'label': 'Periodic Review Cycle Established',
+            'category': 'Quality',
+            'assigned_to': 'pi',
+            'what': 'Schedule regular reviews of AI-generated teaching materials for continued accuracy.',
+            'why': 'AI-generated content may become outdated as knowledge evolves. Regular review ensures materials remain current and accurate.',
+            'how': 'Set a review schedule (e.g., quarterly or each semester). Document review dates and any updates made. Assign responsibility for ongoing review.',
+        },
+    ]
+
+    admin_checkpoints = [
+        {
+            'checkpoint_id': 'decision_impact',
+            'label': 'Decision Impact Assessment Completed',
+            'category': 'Governance',
+            'assigned_to': 'pi',
+            'what': 'Document who is affected by AI-assisted administrative decisions and how.',
+            'why': 'Administrative decisions (admissions, resource allocation, scheduling) carry high-stakes consequences for individuals and groups.',
+            'how': 'Identify all stakeholders affected. Estimate the number of people impacted. Assess potential consequences of incorrect decisions. Document findings.',
+        },
+        {
+            'checkpoint_id': 'appeal_process',
+            'label': 'Appeal / Recourse Process Defined',
+            'category': 'Governance',
+            'assigned_to': 'pi',
+            'what': 'Ensure individuals affected by AI-informed decisions can challenge them.',
+            'why': 'People affected by automated decisions have a right to human review. This is both an ethical obligation and increasingly a legal requirement.',
+            'how': 'Create a written appeal process with clear timelines. Ensure a human decision-maker reviews all appeals. Publish the process where affected parties can find it.',
+        },
+        {
+            'checkpoint_id': 'admin_bias_audit',
+            'label': 'Bias Audit for Administrative Decisions',
+            'category': 'Governance',
+            'assigned_to': 'pi',
+            'what': 'Test for disparate impact on protected groups in AI-assisted decisions.',
+            'why': 'AI systems can perpetuate or amplify existing institutional biases, leading to discrimination in administrative outcomes.',
+            'how': 'Analyze decision outcomes across demographic groups. Use disparate impact ratio (4/5ths rule) to identify potential bias. Document findings and corrective actions.',
+        },
+        {
+            'checkpoint_id': 'data_minimization',
+            'label': 'Data Minimization Verified',
+            'category': 'Data',
+            'assigned_to': 'pi',
+            'what': 'Confirm only necessary data is used in administrative AI processing.',
+            'why': 'Using excessive personal data increases privacy risk and potential for misuse without improving decision quality.',
+            'how': 'Audit which data fields the AI system uses. Remove any fields not essential to the decision. Document the rationale for each retained field.',
+        },
+        {
+            'checkpoint_id': 'admin_disclosure',
+            'label': 'AI Use Disclosed to Affected Parties',
+            'category': 'Transparency',
+            'assigned_to': 'pi',
+            'what': 'Notify people affected by decisions that AI was involved in the process.',
+            'why': 'Transparency about AI involvement in decisions builds trust and is increasingly required by institutional policy and regulation.',
+            'how': 'Include AI disclosure in decision notification letters/emails. Add disclosure to relevant web pages and application forms. Make the disclosure clear and prominent.',
+        },
+    ]
+
     checkpoints = list(base)
 
     if ai_use_case == 'data_analysis':
@@ -153,6 +297,17 @@ def generate_checkpoints_for_use_case(ai_use_case):
         checkpoints += writing_checkpoints
     elif ai_use_case == 'literature':
         checkpoints += writing_checkpoints
+    elif ai_use_case == 'grading':
+        checkpoints += grading_checkpoints
+    elif ai_use_case == 'teaching':
+        checkpoints += teaching_checkpoints
+    elif ai_use_case == 'admin':
+        checkpoints += admin_checkpoints
+
+    # Faculty-only use cases: assign ALL checkpoints to PI
+    faculty_only_cases = {'grading', 'teaching', 'admin'}
+    if ai_use_case in faculty_only_cases:
+        checkpoints = [{**cp, 'assigned_to': 'pi'} for cp in checkpoints]
 
     return checkpoints
 
@@ -324,6 +479,90 @@ def decision_create(request, project_id):
         'checkpointCompleted': checkpoint.completed,
         'checkpointCompletedAt': checkpoint.completed_at.isoformat() if checkpoint.completed_at else None,
     }, status=status.HTTP_201_CREATED)
+
+
+# ============== Dashboard Endpoint ==============
+
+@api_view(['GET'])
+def dashboard_stats(request):
+    """Personalized dashboard stats filtered by role and scope."""
+    if not request.user.is_authenticated:
+        return Response({"error": "Not logged in"}, status=status.HTTP_401_UNAUTHORIZED)
+
+    profile, _ = UserProfile.objects.get_or_create(user=request.user, defaults={'role': 'student'})
+    scope = request.query_params.get('scope', 'mine')
+
+    # Students always see only their own. Faculty can toggle scope.
+    if profile.role == 'student' or scope == 'mine':
+        projects_qs = Project.objects.filter(user=request.user)
+        decisions_qs = Decision.objects.filter(project__user=request.user)
+    else:
+        # Faculty with scope=all sees everything
+        projects_qs = Project.objects.all()
+        decisions_qs = Decision.objects.all()
+
+    projects_qs = projects_qs.select_related('user').prefetch_related('checkpoints', 'decisions')
+    total_activities = projects_qs.count()
+
+    activities = []
+    risk_counts = {'high': 0, 'medium': 0, 'low': 0}
+    total_compliance = 0
+
+    critical_ids = {'irb', 'data_deidentified', 'participant_consent', 'ferpa_compliance', 'grading_fairness', 'decision_impact'}
+    medium_ids = {'bias_audit', 'human_review', 'ai_disclosure', 'human_override', 'admin_bias_audit', 'content_accuracy'}
+
+    for p in projects_qs:
+        cps = list(p.checkpoints.all())
+        total_cp = len(cps)
+        done_cp = sum(1 for c in cps if c.completed)
+        pct = round((done_cp / total_cp) * 100) if total_cp > 0 else 0
+        total_compliance += pct
+
+        incomplete_critical = [c for c in cps if not c.completed and c.checkpoint_id in critical_ids]
+        incomplete_medium = [c for c in cps if not c.completed and c.checkpoint_id in medium_ids]
+
+        if incomplete_critical:
+            risk = 'high'
+        elif incomplete_medium or pct < 50:
+            risk = 'medium'
+        else:
+            risk = 'low'
+
+        risk_counts[risk] += 1
+
+        activities.append({
+            'id': str(p.id),
+            'name': p.name,
+            'owner': p.user.first_name or p.user.email,
+            'aiUseCase': p.ai_use_case,
+            'compliancePct': pct,
+            'risk': risk,
+            'createdAt': p.created_at.isoformat(),
+            'checkpointsDone': done_cp,
+            'checkpointsTotal': total_cp,
+        })
+
+    avg_compliance = round(total_compliance / total_activities) if total_activities > 0 else 0
+
+    recent_decisions = decisions_qs.select_related('project', 'checkpoint').order_by('-logged_at')[:10]
+    recent_feed = [{
+        'activityName': d.project.name,
+        'checkpoint': d.checkpoint.label,
+        'description': d.description,
+        'loggedAt': d.logged_at.isoformat(),
+        'owner': d.project.user.first_name or d.project.user.email,
+    } for d in recent_decisions]
+
+    return Response({
+        'totalActivities': total_activities,
+        'avgCompliance': avg_compliance,
+        'riskBreakdown': risk_counts,
+        'recentFeed': recent_feed,
+        'activities': sorted(activities, key=lambda a: a['createdAt'], reverse=True),
+        'scope': scope,
+        'userRole': profile.role,
+        'userName': request.user.first_name or request.user.email,
+    })
 
 
 # ============== Project Export Endpoint ==============

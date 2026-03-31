@@ -15,6 +15,9 @@ urlpatterns = [
     path('projects/<int:project_id>/decisions', views.decision_create, name='decision-create'),
     path('projects/<int:project_id>/export', views.project_export, name='project-export'),
 
+    # Dashboard endpoint
+    path('dashboard/stats', views.dashboard_stats, name='dashboard-stats'),
+
     # Consent endpoints
     path('research/consent', views.submit_consent, name='submit-consent'),
 
