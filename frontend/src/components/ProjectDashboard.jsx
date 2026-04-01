@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import html2pdf from 'html2pdf.js';
-import { toggleCheckpoint, logDecision, fetchProject, fetchTemplates, exportProjectCSV } from '../services/api';
+import { toggleCheckpoint, logDecision, fetchProject } from '../services/api';
 import EthicsAssistant from './EthicsAssistant';
 import Assessment from './Assessment';
-import DocumentGenerator from './DocumentGenerator';
+import CheckpointComments from './CheckpointComments';
 
 function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpdated }) {
   const [project, setProject] = useState(initialProject);
@@ -12,27 +12,8 @@ function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpda
   const [newDecision, setNewDecision] = useState({ checkpoint: '', description: '', notes: '', proofType: '', proofValue: '' });
   const [expandedCheckpoint, setExpandedCheckpoint] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [disclosureForm, setDisclosureForm] = useState({
-    aiTools: '',
-    aiPurpose: '',
-    humanOversight: '',
-    dataHandling: ''
-  });
-  const [generatedDisclosure, setGeneratedDisclosure] = useState('');
   const [toast, setToast] = useState('');
-  const [templates, setTemplates] = useState([]);
-  const [loadingTemplates, setLoadingTemplates] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
-
-  useEffect(() => {
-    if (activeTab === 'documents' && templates.length === 0 && !loadingTemplates) {
-      setLoadingTemplates(true);
-      fetchTemplates()
-        .then(data => setTemplates(Array.isArray(data) ? data : []))
-        .catch(err => console.error('Failed to load templates', err))
-        .finally(() => setLoadingTemplates(false));
-    }
-  }, [activeTab]);
+  const [ethicsReviewPhase, setEthicsReviewPhase] = useState('assistant');
 
   // Refresh project data from API
   async function refreshProject() {
@@ -56,7 +37,22 @@ function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpda
       'human_review': 'e.g., Two reviewers validate 20% random sample of AI outputs weekly',
       'ai_coding_disclosure': 'e.g., Used GPT-4 for initial theme suggestions, all codes verified by research team',
       'participant_consent': 'e.g., Consent form v2.1 updated to include AI processing disclosure',
-      'ai_writing_disclosure': 'e.g., Used Grammarly and ChatGPT for grammar/clarity edits only'
+      'ai_writing_disclosure': 'e.g., Used Grammarly and ChatGPT for grammar/clarity edits only',
+      'grading_fairness': 'e.g., Compared AI grades across demographics - no statistically significant disparities',
+      'ferpa_compliance': 'e.g., Confirmed student data processed only on FERPA-compliant institutional systems',
+      'grading_transparency': 'e.g., Syllabus updated to disclose AI-assisted grading with opt-out provision',
+      'human_override': 'e.g., Students can request manual re-grading within 7 days of grade posting',
+      'grading_validation': 'e.g., Instructor reviewed 25% random sample - 96% agreement with AI grades',
+      'content_accuracy': 'e.g., All AI-generated lecture materials reviewed by subject matter expert',
+      'accessibility_check': 'e.g., Materials tested with screen reader and meet WCAG 2.1 AA standards',
+      'ip_review': 'e.g., AI-generated content checked against copyright database - no infringement found',
+      'teaching_disclosure': 'e.g., Course syllabus includes AI-generated content disclosure statement',
+      'material_review_cycle': 'e.g., Quarterly review scheduled - next review April 2026',
+      'decision_impact': 'e.g., Impact assessment completed - affects 500 applicants across 3 programs',
+      'appeal_process': 'e.g., Written appeal process published - 30-day review window with human committee',
+      'admin_bias_audit': 'e.g., Disparate impact analysis completed - no protected group disadvantaged',
+      'data_minimization': 'e.g., Reduced data fields from 45 to 12 essential variables for AI processing',
+      'admin_disclosure': 'e.g., Notification sent to all applicants that AI assists in initial screening'
     };
     return examples[checkpointId] || 'e.g., Describe what action was taken';
   }
@@ -131,19 +127,6 @@ function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpda
     }
   }
 
-  async function handleExportCSV() {
-    try {
-      const blob = await exportProjectCSV(project.id);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${project.name.replace(/\s+/g, '_')}_compliance.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('Export failed', err);
-    }
-  }
 
   function generateReport() {
     const completedCount = project.checkpoints.filter(c => c.completed).length;
@@ -156,9 +139,12 @@ function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpda
     const useCaseLabels = {
       'data_analysis': 'Quantitative Data Analysis',
       'qualitative': 'Qualitative Analysis',
-      'ml_model': 'ML Model Development',
-      'literature': 'Literature Review / Synthesis',
-      'writing': 'Writing Assistance',
+      'ml_model': 'ML / AI Model Development',
+      'literature': 'Literature Review & Synthesis',
+      'writing': 'Writing & Editing Assistance',
+      'grading': 'Student Grading & Assessment',
+      'teaching': 'Teaching Material Development',
+      'admin': 'Administrative Decision Making',
       'other': 'Other'
     };
 
@@ -339,67 +325,6 @@ function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpda
     return Math.round((completed / project.checkpoints.length) * 100);
   }
 
-  function generateDisclosureStatement() {
-    const { aiTools, aiPurpose, humanOversight, dataHandling } = disclosureForm;
-
-    if (!aiTools || !aiPurpose) {
-      alert('Please fill in at least the AI tools used and their purpose.');
-      return;
-    }
-
-    const useCaseDescriptions = {
-      'data_analysis': 'quantitative data analysis',
-      'qualitative': 'qualitative data analysis',
-      'ml_model': 'machine learning model development',
-      'literature': 'literature review and synthesis',
-      'writing': 'writing and editing assistance',
-      'other': 'research activities'
-    };
-
-    const useCase = useCaseDescriptions[project.aiUseCase] || 'research activities';
-
-    let statement = `AI DISCLOSURE STATEMENT
-
-Project: ${project.name}
-
-Use of Artificial Intelligence in This Research
-
-This research utilized artificial intelligence tools for ${useCase}. The following disclosure is provided in accordance with research transparency guidelines.
-
-AI Tools Used:
-${aiTools}
-
-Purpose and Scope:
-${aiPurpose}`;
-
-    if (humanOversight) {
-      statement += `
-
-Human Oversight:
-${humanOversight}`;
-    }
-
-    if (dataHandling) {
-      statement += `
-
-Data Handling:
-${dataHandling}`;
-    }
-
-    statement += `
-
----
-Generated using ALIGN (AI Lifecycle Integrity and Governance Navigator)
-Date: ${new Date().toLocaleDateString()}`;
-
-    setGeneratedDisclosure(statement);
-  }
-
-  function copyDisclosure() {
-    navigator.clipboard.writeText(generatedDisclosure);
-    showToast('Copied to clipboard ✓');
-  }
-
   function showToast(message) {
     setToast(message);
     setTimeout(() => setToast(''), 2500);
@@ -430,7 +355,7 @@ Date: ${new Date().toLocaleDateString()}`;
     const checkpointsToCheck = role === 'compliance' ? allCheckpoints : myCheckpoints;
     const incompleteCheckpoints = checkpointsToCheck.filter(c => !c.completed);
 
-    const criticalCheckpoints = ['irb', 'data_deidentified', 'participant_consent'];
+    const criticalCheckpoints = ['irb', 'data_deidentified', 'participant_consent', 'ferpa_compliance', 'grading_fairness', 'decision_impact'];
     const incompleteCritical = incompleteCheckpoints.filter(c => criticalCheckpoints.includes(c.id));
 
     if (incompleteCritical.length > 0) {
@@ -441,7 +366,7 @@ Date: ${new Date().toLocaleDateString()}`;
       });
     }
 
-    const mediumCheckpoints = ['bias_audit', 'human_review', 'ai_disclosure'];
+    const mediumCheckpoints = ['bias_audit', 'human_review', 'ai_disclosure', 'human_override', 'admin_bias_audit', 'content_accuracy'];
     const incompleteMedium = incompleteCheckpoints.filter(c => mediumCheckpoints.includes(c.id));
 
     if (incompleteMedium.length > 0) {
@@ -469,7 +394,7 @@ Date: ${new Date().toLocaleDateString()}`;
       {toast && <div className="toast-notification">{toast}</div>}
       <header className="project-dashboard-header">
         <div className="header-top-row">
-          <button className="back-btn" onClick={onBack}>&larr; Back to Projects</button>
+          <button className="back-btn" onClick={onBack}>&larr; Back to Activities</button>
           <span className={`role-badge role-${role}`}>
             {role === 'pi' ? 'Principal Investigator' :
              role === 'student' ? 'Student Researcher' :
@@ -483,16 +408,9 @@ Date: ${new Date().toLocaleDateString()}`;
               Created {new Date(project.createdAt).toLocaleDateString()} &bull; {project.description || 'No description'}
             </p>
           </div>
-          <div className="header-report-actions">
-            <button className="btn-secondary" onClick={handleExportCSV}>
-              Export CSV
-            </button>
-            <button className="btn-primary" onClick={generateReport}>
-              {role === 'compliance' ? 'Generate Audit Report' :
-               role === 'student' ? 'Generate Draft Report' :
-               'Generate Report'}
-            </button>
-          </div>
+          <button className="btn-primary" onClick={generateReport}>
+            Export Report
+          </button>
         </div>
       </header>
 
@@ -530,7 +448,7 @@ Date: ${new Date().toLocaleDateString()}`;
           {role !== 'compliance' && (
             <div className="stat overall-stat">
               <span className="stat-value">{getCompletionPercentage()}%</span>
-              <span className="stat-label">Overall Project</span>
+              <span className="stat-label">Overall Activity</span>
             </div>
           )}
         </div>
@@ -562,39 +480,13 @@ Date: ${new Date().toLocaleDateString()}`;
           className={`tab ${activeTab === 'checkpoints' ? 'active' : ''}`}
           onClick={() => setActiveTab('checkpoints')}
         >
-          {role === 'compliance' ? 'Compliance Status' : 'Checkpoints'}
+          Compliance Tracker
         </button>
         <button
-          className={`tab ${activeTab === 'decisions' ? 'active' : ''}`}
-          onClick={() => setActiveTab('decisions')}
+          className={`tab ${activeTab === 'ethics-review' ? 'active' : ''}`}
+          onClick={() => { setEthicsReviewPhase('assistant'); setActiveTab('ethics-review'); }}
         >
-          {role === 'compliance' ? 'Audit Trail' : 'Decision Log'} ({project.decisions?.length || 0})
-        </button>
-        {role !== 'compliance' && (
-          <button
-            className={`tab ${activeTab === 'disclosure' ? 'active' : ''}`}
-            onClick={() => setActiveTab('disclosure')}
-          >
-            Disclosure Generator
-          </button>
-        )}
-        <button
-          className={`tab ${activeTab === 'ethics' ? 'active' : ''}`}
-          onClick={() => setActiveTab('ethics')}
-        >
-          Ethics Assistant
-        </button>
-        <button
-          className={`tab ${activeTab === 'assessment' ? 'active' : ''}`}
-          onClick={() => setActiveTab('assessment')}
-        >
-          Assessment
-        </button>
-        <button
-          className={`tab ${activeTab === 'documents' ? 'active' : ''}`}
-          onClick={() => { setSelectedTemplate(null); setActiveTab('documents'); }}
-        >
-          Documents
+          Ethics Review
         </button>
       </div>
 
@@ -668,6 +560,13 @@ Date: ${new Date().toLocaleDateString()}`;
                         </div>
                         <div className="checkpoint-content">
                           <span className="checkpoint-label">{checkpoint.label}</span>
+                          {checkpoint.frameworks && checkpoint.frameworks.length > 0 && (
+                            <div className="framework-badges">
+                              {checkpoint.frameworks.map(fw => (
+                                <span key={fw} className={`framework-badge fw-${fw.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}>{fw}</span>
+                              ))}
+                            </div>
+                          )}
                           {checkpoint.completed ? (
                             <span className="checkpoint-date completed-date">
                               Documented {new Date(checkpoint.completedAt).toLocaleDateString()}
@@ -736,20 +635,51 @@ Date: ${new Date().toLocaleDateString()}`;
                           </span>
                         )}
                       </div>
-                      {expandedCheckpoint === checkpoint.id && checkpoint.what && (
-                        <div className="checkpoint-help">
-                          <div className="help-section">
-                            <strong>What:</strong>
-                            <p>{checkpoint.what}</p>
-                          </div>
-                          <div className="help-section">
-                            <strong>Why it matters:</strong>
-                            <p>{checkpoint.why}</p>
-                          </div>
-                          <div className="help-section">
-                            <strong>How to complete:</strong>
-                            <p>{checkpoint.how}</p>
-                          </div>
+                      {expandedCheckpoint === checkpoint.id && (
+                        <div className="checkpoint-expanded">
+                          {checkpoint.what && (
+                            <div className="checkpoint-help">
+                              <div className="help-section">
+                                <strong>What:</strong>
+                                <p>{checkpoint.what}</p>
+                              </div>
+                              <div className="help-section">
+                                <strong>Why it matters:</strong>
+                                <p>{checkpoint.why}</p>
+                              </div>
+                              <div className="help-section">
+                                <strong>How to complete:</strong>
+                                <p>{checkpoint.how}</p>
+                              </div>
+                            </div>
+                          )}
+                          {/* Inline decisions for this checkpoint */}
+                          {(() => {
+                            const cpDecisions = (project.decisions || []).filter(d => d.checkpoint === checkpoint.id);
+                            if (cpDecisions.length === 0) return null;
+                            return (
+                              <div className="inline-decisions">
+                                <div className="inline-decisions-label">Audit Trail ({cpDecisions.length})</div>
+                                {cpDecisions.map(d => (
+                                  <div key={d.id} className="inline-decision-item">
+                                    <div className="inline-decision-date">{new Date(d.loggedAt).toLocaleDateString()}</div>
+                                    <div className="inline-decision-body">
+                                      <div className="inline-decision-desc">{d.description}</div>
+                                      {d.notes && <div className="inline-decision-notes">{d.notes}</div>}
+                                      {d.proofValue && (
+                                        <div className="inline-decision-proof">
+                                          {d.proofType === 'url'
+                                            ? <a href={d.proofValue} target="_blank" rel="noopener noreferrer">{d.proofValue}</a>
+                                            : <span>File: {d.proofValue}</span>}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })()}
+                          <CheckpointComments projectId={project.id} checkpointId={checkpoint.id} />
                         </div>
                       )}
                     </div>
@@ -760,186 +690,35 @@ Date: ${new Date().toLocaleDateString()}`;
         </div>
       )}
 
-      {/* Decisions Tab */}
-      {activeTab === 'decisions' && (
-        <div className="decisions-section">
-          <div className="section-header">
-            <h2>Decision Log</h2>
-          </div>
-
-          {(!project.decisions || project.decisions.length === 0) ? (
-            <div className="empty-decisions">
-              <p>No decisions logged yet. Use the "Document" button on each checkpoint to build your audit trail.</p>
-            </div>
-          ) : (
-            <div className="decisions-timeline">
-              {project.decisions.map(decision => (
-                <div key={decision.id} className="decision-item">
-                  <div className="decision-date">
-                    {new Date(decision.loggedAt).toLocaleDateString()}
-                  </div>
-                  <div className="decision-content">
-                    <span className="decision-checkpoint">
-                      {project.checkpoints?.find(c => c.id === decision.checkpoint)?.label || 'General'}
-                    </span>
-                    <p className="decision-description">{decision.description}</p>
-                    {decision.notes && (
-                      <p className="decision-notes">{decision.notes}</p>
-                    )}
-                    {decision.proofType && decision.proofValue && (
-                      <div className="decision-proof">
-                        {decision.proofType === 'url' ? (
-                          <a href={decision.proofValue} target="_blank" rel="noopener noreferrer" className="proof-link">
-                            Link: {decision.proofValue}
-                          </a>
-                        ) : (
-                          <span className="proof-file">File: {decision.proofValue}</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Disclosure Generator Tab */}
-      {activeTab === 'disclosure' && (
-        <div className="disclosure-section">
-          <div className="section-header">
-            <h2>AI Disclosure Statement Generator</h2>
-          </div>
-
-          <div className="disclosure-explainer">
-            <p>
-              Most journals and institutions now require disclosure of AI use in research.
-              Fill in the details below to generate a disclosure statement you can include
-              in your papers, grant applications, or IRB submissions.
-            </p>
-          </div>
-
-          <div className="disclosure-form">
-            <div className="form-group">
-              <label>AI Tools Used *</label>
-              <textarea
-                value={disclosureForm.aiTools}
-                onChange={(e) => setDisclosureForm({ ...disclosureForm, aiTools: e.target.value })}
-                placeholder="e.g., ChatGPT (GPT-4), Python scikit-learn library, Google Cloud Vision API"
-                rows={2}
-              />
-              <p className="form-hint">List all AI tools, models, or services used in this research</p>
-            </div>
-
-            <div className="form-group">
-              <label>Purpose and How AI Was Used *</label>
-              <textarea
-                value={disclosureForm.aiPurpose}
-                onChange={(e) => setDisclosureForm({ ...disclosureForm, aiPurpose: e.target.value })}
-                placeholder="e.g., AI was used to assist with initial coding of interview transcripts. All AI-generated codes were reviewed and validated by two human researchers. Final themes were determined through researcher consensus."
-                rows={4}
-              />
-              <p className="form-hint">Describe specifically what the AI did and what it did not do</p>
-            </div>
-
-            <div className="form-group">
-              <label>Human Oversight Process</label>
-              <textarea
-                value={disclosureForm.humanOversight}
-                onChange={(e) => setDisclosureForm({ ...disclosureForm, humanOversight: e.target.value })}
-                placeholder="e.g., All AI outputs were reviewed by the research team. AI suggestions were accepted, modified, or rejected based on domain expertise."
-                rows={3}
-              />
-              <p className="form-hint">How did humans review, validate, or modify AI outputs?</p>
-            </div>
-
-            <div className="form-group">
-              <label>Data Handling</label>
-              <textarea
-                value={disclosureForm.dataHandling}
-                onChange={(e) => setDisclosureForm({ ...disclosureForm, dataHandling: e.target.value })}
-                placeholder="e.g., No identifiable participant data was shared with AI services. All data was de-identified before processing."
-                rows={2}
-              />
-              <p className="form-hint">How was data privacy maintained when using AI?</p>
-            </div>
-
-            <button className="btn-primary" onClick={generateDisclosureStatement}>
-              Generate Disclosure Statement
+      {/* Ethics Review Tab */}
+      {activeTab === 'ethics-review' && (
+        <div className="ethics-review-section">
+          <div className="ethics-review-toggle">
+            <button
+              className={`toggle-btn ${ethicsReviewPhase === 'assistant' ? 'active' : ''}`}
+              onClick={() => setEthicsReviewPhase('assistant')}
+            >
+              Project Review
+            </button>
+            <button
+              className={`toggle-btn ${ethicsReviewPhase === 'quiz' ? 'active' : ''}`}
+              onClick={() => setEthicsReviewPhase('quiz')}
+            >
+              Knowledge Check
             </button>
           </div>
-
-          {generatedDisclosure && (
-            <div className="generated-disclosure">
-              <div className="disclosure-header">
-                <h3>Generated Disclosure Statement</h3>
-                <button className="btn-secondary" onClick={copyDisclosure}>
-                  Copy to Clipboard
-                </button>
-              </div>
-              <pre className="disclosure-text">{generatedDisclosure}</pre>
+          {ethicsReviewPhase === 'assistant' ? (
+            <div className="ethics-tab-section">
+              <EthicsAssistant onBack={() => setActiveTab('checkpoints')} />
+            </div>
+          ) : (
+            <div className="assessment-tab-section">
+              <Assessment onBack={() => setEthicsReviewPhase('assistant')} />
             </div>
           )}
         </div>
       )}
 
-      {/* Ethics Assistant Tab */}
-      {activeTab === 'ethics' && (
-        <div className="ethics-tab-section">
-          <EthicsAssistant onBack={() => setActiveTab('checkpoints')} />
-        </div>
-      )}
-
-      {/* Assessment Tab */}
-      {activeTab === 'assessment' && (
-        <div className="assessment-tab-section">
-          <Assessment onBack={() => setActiveTab('checkpoints')} />
-        </div>
-      )}
-
-      {/* Documents Tab */}
-      {activeTab === 'documents' && (
-        <div className="documents-section">
-          {selectedTemplate ? (
-            <DocumentGenerator
-              templateKey={selectedTemplate.key}
-              templateName={selectedTemplate.name}
-              onBack={() => setSelectedTemplate(null)}
-            />
-          ) : (
-            <>
-              <div className="section-header">
-                <h2>Document Templates</h2>
-              </div>
-              <div className="documents-explainer">
-                <p>Generate compliance documents — IRB amendments, FERPA checklists, and disclosure statements — tailored for your research context.</p>
-              </div>
-              {loadingTemplates ? (
-                <div className="loading">Loading templates...</div>
-              ) : (
-                <div className="templates-grid">
-                  {templates.map(template => (
-                    <div
-                      key={template.key}
-                      className="template-card"
-                      onClick={() => setSelectedTemplate(template)}
-                    >
-                      <div className="template-icon">📄</div>
-                      <h3>{template.name}</h3>
-                      <p>{template.description}</p>
-                      <button className="btn-secondary template-btn">Generate →</button>
-                    </div>
-                  ))}
-                  {templates.length === 0 && (
-                    <p className="empty-templates">No templates available.</p>
-                  )}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
 
       {/* Document Checkpoint Modal */}
       {showLogModal && (

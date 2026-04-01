@@ -1,18 +1,25 @@
 import { useState, useEffect } from 'react';
-import { fetchProjects, createProject } from '../services/api';
+import { fetchProjects, createProject, fetchTools } from '../services/api';
 
-function ProjectList({ role, onSelectProject, onLogout }) {
+function ProjectList({ role, onSelectProject, onLogout, onViewDashboard, onViewToolRegistry }) {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newProject, setNewProject] = useState({ name: '', description: '', aiUseCase: '' });
+  const [newProject, setNewProject] = useState({ name: '', description: '', aiUseCase: '', aiToolIds: [] });
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
+  const [availableTools, setAvailableTools] = useState([]);
 
   useEffect(() => {
     loadProjects();
   }, []);
+
+  useEffect(() => {
+    if (showCreateModal && availableTools.length === 0) {
+      fetchTools().then(setAvailableTools).catch(() => {});
+    }
+  }, [showCreateModal]);
 
   async function loadProjects() {
     try {
@@ -20,7 +27,7 @@ function ProjectList({ role, onSelectProject, onLogout }) {
       setProjects(data);
     } catch (err) {
       console.error('Failed to load projects', err);
-      setLoadError('Could not load projects. Please refresh the page.');
+      setLoadError('Could not load activities. Please refresh the page.');
     } finally {
       setLoading(false);
     }
@@ -35,10 +42,11 @@ function ProjectList({ role, onSelectProject, onLogout }) {
       const project = await createProject(
         newProject.name,
         newProject.description,
-        newProject.aiUseCase
+        newProject.aiUseCase,
+        newProject.aiToolIds
       );
       setProjects([project, ...projects]);
-      setNewProject({ name: '', description: '', aiUseCase: '' });
+      setNewProject({ name: '', description: '', aiUseCase: '', aiToolIds: [] });
       setShowCreateModal(false);
       onSelectProject(project);
     } catch (err) {
@@ -62,12 +70,15 @@ function ProjectList({ role, onSelectProject, onLogout }) {
   }
 
   const aiUseCases = [
-    { value: 'data_analysis', label: 'Data Analysis (quantitative)' },
-    { value: 'qualitative', label: 'Qualitative Analysis (interviews, text)' },
-    { value: 'ml_model', label: 'ML Model Development' },
-    { value: 'literature', label: 'Literature Review / Synthesis' },
-    { value: 'writing', label: 'Writing Assistance' },
-    { value: 'other', label: 'Other' }
+    { value: 'data_analysis', label: 'Data Analysis (quantitative research)' },
+    { value: 'qualitative', label: 'Qualitative Analysis (interviews, text coding)' },
+    { value: 'ml_model', label: 'ML / AI Model Development' },
+    { value: 'literature', label: 'Literature Review & Synthesis' },
+    { value: 'writing', label: 'Writing & Editing Assistance' },
+    { value: 'grading', label: 'Student Grading & Assessment' },
+    { value: 'teaching', label: 'Teaching Material Development' },
+    { value: 'admin', label: 'Administrative Decision Making' },
+    { value: 'other', label: 'Other' },
   ];
 
   if (loading) {
@@ -77,7 +88,7 @@ function ProjectList({ role, onSelectProject, onLogout }) {
           <div className="header-left">
             <div className="header-badge">ALIGN</div>
             <div>
-              <h1>My Projects</h1>
+              <h1>My Activities</h1>
               <p className="role-indicator">Loading...</p>
             </div>
           </div>
@@ -101,7 +112,7 @@ function ProjectList({ role, onSelectProject, onLogout }) {
         <div className="header-left">
           <div className="header-badge">ALIGN</div>
           <div>
-            <h1>My Projects</h1>
+            <h1>My Activities</h1>
             <p className="role-indicator">
               {role === 'pi' ? 'Principal Investigator' :
                role === 'student' ? 'Student Researcher' :
@@ -110,6 +121,12 @@ function ProjectList({ role, onSelectProject, onLogout }) {
           </div>
         </div>
         <div className="header-actions">
+          <button className="btn-secondary" onClick={onViewToolRegistry}>
+            AI Tools
+          </button>
+          <button className="btn-secondary" onClick={onViewDashboard}>
+            Dashboard
+          </button>
           <button className="btn-secondary" onClick={onLogout}>
             Sign Out
           </button>
@@ -125,10 +142,10 @@ function ProjectList({ role, onSelectProject, onLogout }) {
 
       {projects.length === 0 ? (
         <div className="empty-state">
-          <h2>No Projects Yet</h2>
-          <p>Create your first project to start tracking AI ethics compliance</p>
+          <h2>No Activities Yet</h2>
+          <p>Create your first activity to start tracking AI ethics compliance</p>
           <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
-            + Create Project
+            + Create Activity
           </button>
         </div>
       ) : (
@@ -176,7 +193,7 @@ function ProjectList({ role, onSelectProject, onLogout }) {
               onClick={() => setShowCreateModal(true)}
             >
               <div className="add-icon">+</div>
-              <span>New Project</span>
+              <span>New Activity</span>
             </div>
           </div>
         </>
@@ -186,15 +203,15 @@ function ProjectList({ role, onSelectProject, onLogout }) {
       {showCreateModal && (
         <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Create New Project</h2>
+            <h2>Create New Activity</h2>
 
             <div className="form-group">
-              <label>Project Name *</label>
+              <label>Activity Name *</label>
               <input
                 type="text"
                 value={newProject.name}
                 onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
-                placeholder="e.g., Neonatal Pain Detection Study"
+                placeholder="e.g., AI-Assisted Grading for CSE 101"
               />
             </div>
 
@@ -222,6 +239,33 @@ function ProjectList({ role, onSelectProject, onLogout }) {
               <p className="form-hint">This determines which compliance checkpoints are relevant</p>
             </div>
 
+            {availableTools.length > 0 && (
+              <div className="form-group">
+                <label>AI Tools Used (optional)</label>
+                <div className="tool-multiselect">
+                  {availableTools.filter(t => t.status !== 'not_recommended').map(tool => (
+                    <label key={tool.id} className="tool-option">
+                      <input
+                        type="checkbox"
+                        checked={newProject.aiToolIds.includes(tool.id)}
+                        onChange={(e) => {
+                          const ids = e.target.checked
+                            ? [...newProject.aiToolIds, tool.id]
+                            : newProject.aiToolIds.filter(id => id !== tool.id);
+                          setNewProject({ ...newProject, aiToolIds: ids });
+                        }}
+                      />
+                      <span className="tool-option-name">{tool.name}</span>
+                      <span className={`tool-option-status ${tool.status === 'approved' ? 'status-approved' : 'status-review'}`}>
+                        {tool.statusDisplay}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                <p className="form-hint">Select AI tools from the institutional registry</p>
+              </div>
+            )}
+
             {createError && <p className="error-text">{createError}</p>}
 
             <div className="modal-actions">
@@ -233,7 +277,7 @@ function ProjectList({ role, onSelectProject, onLogout }) {
                 onClick={handleCreateProject}
                 disabled={!newProject.name.trim() || !newProject.aiUseCase || creating}
               >
-                {creating ? 'Creating...' : 'Create Project'}
+                {creating ? 'Creating...' : 'Create Activity'}
               </button>
             </div>
           </div>

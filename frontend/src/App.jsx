@@ -3,6 +3,8 @@ import Landing from './components/Landing';
 import Login from './components/Login';
 import ProjectList from './components/ProjectList';
 import ProjectDashboard from './components/ProjectDashboard';
+import InstitutionalDashboard from './components/InstitutionalDashboard';
+import AIToolRegistry from './components/AIToolRegistry';
 import './App.css';
 
 // Map auth roles to dashboard roles
@@ -66,6 +68,14 @@ function App() {
     return <Login onLogin={handleLogin} onBack={() => setCurrentView('landing')} />;
   }
 
+  if (currentView === 'dashboard') {
+    return <InstitutionalDashboard onBack={() => setCurrentView('projects')} />;
+  }
+
+  if (currentView === 'tool-registry') {
+    return <AIToolRegistry role={userRole} onBack={() => setCurrentView('projects')} />;
+  }
+
   if (currentView === 'project-detail' && selectedProject) {
     return (
       <ProjectDashboard
@@ -82,6 +92,8 @@ function App() {
       role={userRole}
       onSelectProject={handleSelectProject}
       onLogout={handleLogout}
+      onViewDashboard={() => setCurrentView('dashboard')}
+      onViewToolRegistry={() => setCurrentView('tool-registry')}
     />
   );
 }

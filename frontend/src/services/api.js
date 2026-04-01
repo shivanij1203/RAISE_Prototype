@@ -32,11 +32,12 @@ export async function fetchProjects() {
   return res.data;
 }
 
-export async function createProject(name, description, aiUseCase) {
+export async function createProject(name, description, aiUseCase, aiToolIds = []) {
   const res = await api.post('/projects', {
     name,
     description,
     ai_use_case: aiUseCase,
+    ai_tool_ids: aiToolIds,
   });
   return res.data;
 }
@@ -58,6 +59,40 @@ export async function logDecision(projectId, data) {
 
 export async function exportProjectCSV(projectId) {
   const res = await api.get(`/projects/${projectId}/export`, { responseType: 'blob' });
+  return res.data;
+}
+
+// AI Tool Registry
+export async function fetchTools(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  const res = await api.get(`/tools${query ? '?' + query : ''}`);
+  return res.data;
+}
+
+export async function createTool(data) {
+  const res = await api.post('/tools', data);
+  return res.data;
+}
+
+export async function updateTool(toolId, data) {
+  const res = await api.put(`/tools/${toolId}`, data);
+  return res.data;
+}
+
+// Checkpoint Comments
+export async function fetchCheckpointComments(projectId, checkpointId) {
+  const res = await api.get(`/projects/${projectId}/checkpoints/${checkpointId}/comments`);
+  return res.data;
+}
+
+export async function postCheckpointComment(projectId, checkpointId, text) {
+  const res = await api.post(`/projects/${projectId}/checkpoints/${checkpointId}/comments`, { text });
+  return res.data;
+}
+
+// Dashboard
+export async function fetchDashboardStats(scope = 'mine') {
+  const res = await api.get(`/dashboard/stats?scope=${scope}`);
   return res.data;
 }
 

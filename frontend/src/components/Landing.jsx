@@ -54,7 +54,7 @@ function Landing({ onGetStarted }) {
             <div className="hc-main">
               <div className="hc-top">
                 <div className="hc-project-info">
-                  <span className="hc-label">Active Project</span>
+                  <span className="hc-label">Active Activity</span>
                   <span className="hc-project-name">AI-Assisted Grading Study</span>
                 </div>
                 <span className="hc-status-badge">In Progress</span>
@@ -246,7 +246,7 @@ function Landing({ onGetStarted }) {
           <div className="cta-glow"></div>
           <div className="section-label light">GET STARTED</div>
           <h2>Ready to use AI responsibly?</h2>
-          <p>Create your account with a USF email and set up your first compliance project in under 5 minutes.</p>
+          <p>Create your account with a USF email and set up your first compliance activity in under 5 minutes.</p>
           <button className="btn-hero-primary large" onClick={onGetStarted}>
             Create Your Account
             <span className="btn-arrow">→</span>
