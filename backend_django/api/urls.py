@@ -18,6 +18,14 @@ urlpatterns = [
     # Dashboard endpoint
     path('dashboard/stats', views.dashboard_stats, name='dashboard-stats'),
 
+    # AI Tool Registry endpoints
+    path('tools', views.ai_tool_list_create, name='tool-list-create'),
+    path('tools/<int:tool_id>', views.ai_tool_update, name='tool-update'),
+
+    # Checkpoint Comment endpoints
+    path('projects/<int:project_id>/checkpoints/<str:checkpoint_id>/comments',
+         views.checkpoint_comments, name='checkpoint-comments'),
+
     # Consent endpoints
     path('research/consent', views.submit_consent, name='submit-consent'),
 

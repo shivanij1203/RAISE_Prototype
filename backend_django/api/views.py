@@ -11,7 +11,7 @@ from django.core.cache import cache
 
 from .models import (
     UserProfile, ResearchConsent, AssessmentSession, AssessmentResponse,
-    Project, Checkpoint, Decision
+    Project, Checkpoint, Decision, AITool, CheckpointComment
 )
 import uuid
 
@@ -29,6 +29,37 @@ from .services.assessment_data import (
     get_categories,
     calculate_results
 )
+
+
+# ============== Framework Mapping ==============
+
+FRAMEWORK_MAP = {
+    'irb': ['IRB', 'Common Rule'],
+    'data_classification': ['NIST AI RMF', 'Institutional Policy'],
+    'ai_disclosure': ['Transparency', 'Journal Policy'],
+    'data_deidentified': ['HIPAA', 'FERPA', 'NIST AI RMF'],
+    'data_storage': ['NIST AI RMF', 'Institutional Policy'],
+    'bias_audit': ['NIST AI RMF', 'Fairness'],
+    'human_review': ['NIST AI RMF', 'Accountability'],
+    'ai_coding_disclosure': ['Transparency', 'Journal Policy'],
+    'participant_consent': ['IRB', 'Common Rule', 'FERPA'],
+    'ai_writing_disclosure': ['Transparency', 'Journal Policy'],
+    'grading_fairness': ['FERPA', 'Fairness', 'Institutional Policy'],
+    'ferpa_compliance': ['FERPA'],
+    'grading_transparency': ['FERPA', 'Transparency', 'Institutional Policy'],
+    'human_override': ['FERPA', 'Accountability'],
+    'grading_validation': ['NIST AI RMF', 'Accountability'],
+    'content_accuracy': ['NIST AI RMF', 'Institutional Policy'],
+    'accessibility_check': ['ADA', 'Section 508'],
+    'ip_review': ['Copyright', 'Institutional Policy'],
+    'teaching_disclosure': ['Transparency', 'Institutional Policy'],
+    'material_review_cycle': ['NIST AI RMF', 'Institutional Policy'],
+    'decision_impact': ['NIST AI RMF', 'Fairness'],
+    'appeal_process': ['Accountability', 'Institutional Policy'],
+    'admin_bias_audit': ['NIST AI RMF', 'Fairness', 'Civil Rights'],
+    'data_minimization': ['NIST AI RMF', 'Privacy'],
+    'admin_disclosure': ['Transparency', 'Institutional Policy'],
+}
 
 
 # ============== Checkpoint Generation Logic ==============
@@ -309,6 +340,9 @@ def generate_checkpoints_for_use_case(ai_use_case):
     if ai_use_case in faculty_only_cases:
         checkpoints = [{**cp, 'assigned_to': 'pi'} for cp in checkpoints]
 
+    # Inject framework tags from the mapping
+    checkpoints = [{**cp, 'frameworks': FRAMEWORK_MAP.get(cp['checkpoint_id'], [])} for cp in checkpoints]
+
     return checkpoints
 
 
@@ -327,6 +361,7 @@ def serialize_project(project):
             'what': cp.what,
             'why': cp.why,
             'how': cp.how,
+            'frameworks': cp.frameworks or [],
         })
 
     decisions = []
@@ -350,6 +385,10 @@ def serialize_project(project):
         'createdAt': project.created_at.isoformat(),
         'checkpoints': checkpoints,
         'decisions': decisions,
+        'aiTools': [
+            {'id': t.id, 'name': t.name, 'status': t.status, 'category': t.category}
+            for t in project.ai_tools.all()
+        ],
     }
 
 
@@ -383,6 +422,12 @@ def project_list_create(request):
     checkpoint_defs = generate_checkpoints_for_use_case(ai_use_case)
     for cp_def in checkpoint_defs:
         Checkpoint.objects.create(project=project, **cp_def)
+
+    # Link AI tools if provided
+    ai_tool_ids = request.data.get('ai_tool_ids', [])
+    if ai_tool_ids:
+        tools = AITool.objects.filter(id__in=ai_tool_ids)
+        project.ai_tools.set(tools)
 
     return Response(serialize_project(project), status=status.HTTP_201_CREATED)
 
@@ -553,16 +598,170 @@ def dashboard_stats(request):
         'owner': d.project.user.first_name or d.project.user.email,
     } for d in recent_decisions]
 
+    # Tool stats
+    from django.db.models import Count
+    tool_stats = {
+        'total': AITool.objects.count(),
+        'byStatus': {
+            'approved': AITool.objects.filter(status='approved').count(),
+            'under_review': AITool.objects.filter(status='under_review').count(),
+            'not_recommended': AITool.objects.filter(status='not_recommended').count(),
+        },
+        'mostUsed': [
+            {'id': t.id, 'name': t.name, 'category': t.category, 'count': t.usage_count}
+            for t in AITool.objects.annotate(usage_count=Count('projects')).filter(usage_count__gt=0).order_by('-usage_count')[:5]
+        ],
+    }
+
     return Response({
         'totalActivities': total_activities,
         'avgCompliance': avg_compliance,
         'riskBreakdown': risk_counts,
         'recentFeed': recent_feed,
         'activities': sorted(activities, key=lambda a: a['createdAt'], reverse=True),
+        'toolStats': tool_stats,
         'scope': scope,
         'userRole': profile.role,
         'userName': request.user.first_name or request.user.email,
     })
+
+
+# ============== AI Tool Registry Endpoints ==============
+
+def serialize_ai_tool(tool):
+    return {
+        'id': tool.id,
+        'name': tool.name,
+        'description': tool.description,
+        'vendor': tool.vendor,
+        'category': tool.category,
+        'categoryDisplay': tool.get_category_display(),
+        'status': tool.status,
+        'statusDisplay': tool.get_status_display(),
+        'riskNotes': tool.risk_notes,
+        'addedBy': tool.added_by.first_name or tool.added_by.email if tool.added_by else None,
+        'createdAt': tool.created_at.isoformat(),
+        'projectCount': tool.projects.count(),
+    }
+
+
+@api_view(['GET', 'POST'])
+def ai_tool_list_create(request):
+    if not request.user.is_authenticated:
+        return Response({"error": "Not logged in"}, status=status.HTTP_401_UNAUTHORIZED)
+
+    if request.method == 'GET':
+        tools = AITool.objects.all()
+        category = request.query_params.get('category')
+        tool_status = request.query_params.get('status')
+        search = request.query_params.get('search', '').strip()
+        if category:
+            tools = tools.filter(category=category)
+        if tool_status:
+            tools = tools.filter(status=tool_status)
+        if search:
+            tools = tools.filter(name__icontains=search)
+        return Response([serialize_ai_tool(t) for t in tools])
+
+    # POST — faculty only
+    profile, _ = UserProfile.objects.get_or_create(user=request.user, defaults={'role': 'student'})
+    if profile.role != 'faculty':
+        return Response({"error": "Only faculty can add tools"}, status=status.HTTP_403_FORBIDDEN)
+
+    name = request.data.get('name', '').strip()
+    category = request.data.get('category', '')
+    if not name or not category:
+        return Response({"error": "Name and category are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    tool = AITool.objects.create(
+        name=name,
+        description=request.data.get('description', ''),
+        vendor=request.data.get('vendor', ''),
+        category=category,
+        status=request.data.get('status', 'under_review'),
+        risk_notes=request.data.get('risk_notes', ''),
+        added_by=request.user,
+    )
+    return Response(serialize_ai_tool(tool), status=status.HTTP_201_CREATED)
+
+
+@api_view(['PUT'])
+def ai_tool_update(request, tool_id):
+    if not request.user.is_authenticated:
+        return Response({"error": "Not logged in"}, status=status.HTTP_401_UNAUTHORIZED)
+
+    profile, _ = UserProfile.objects.get_or_create(user=request.user, defaults={'role': 'student'})
+    if profile.role != 'faculty':
+        return Response({"error": "Only faculty can update tools"}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        tool = AITool.objects.get(id=tool_id)
+    except AITool.DoesNotExist:
+        return Response({"error": "Tool not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    for field in ['name', 'description', 'vendor', 'category', 'status', 'risk_notes']:
+        if field in request.data:
+            setattr(tool, field, request.data[field])
+    tool.save()
+
+    return Response(serialize_ai_tool(tool))
+
+
+# ============== Checkpoint Comment Endpoints ==============
+
+@api_view(['GET', 'POST'])
+def checkpoint_comments(request, project_id, checkpoint_id):
+    if not request.user.is_authenticated:
+        return Response({"error": "Not logged in"}, status=status.HTTP_401_UNAUTHORIZED)
+
+    try:
+        project = Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return Response({"error": "Activity not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        checkpoint = Checkpoint.objects.get(project=project, checkpoint_id=checkpoint_id)
+    except Checkpoint.DoesNotExist:
+        return Response({"error": "Checkpoint not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        comments = checkpoint.comments.select_related('user').all()
+        result = []
+        for c in comments:
+            user_role = 'unknown'
+            if hasattr(c.user, 'profile'):
+                user_role = c.user.profile.role
+            result.append({
+                'id': c.id,
+                'text': c.text,
+                'userName': c.user.first_name or c.user.email,
+                'userRole': user_role,
+                'createdAt': c.created_at.isoformat(),
+            })
+        return Response(result)
+
+    # POST
+    text = request.data.get('text', '').strip()
+    if not text:
+        return Response({"error": "Comment text is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    comment = CheckpointComment.objects.create(
+        checkpoint=checkpoint,
+        user=request.user,
+        text=text,
+    )
+
+    user_role = 'unknown'
+    if hasattr(request.user, 'profile'):
+        user_role = request.user.profile.role
+
+    return Response({
+        'id': comment.id,
+        'text': comment.text,
+        'userName': request.user.first_name or request.user.email,
+        'userRole': user_role,
+        'createdAt': comment.created_at.isoformat(),
+    }, status=status.HTTP_201_CREATED)
 
 
 # ============== Project Export Endpoint ==============
