@@ -10,7 +10,7 @@ function Landing({ onGetStarted }) {
             <div className="logo-text-group">
               <span className="logo-university-name">University of South Florida</span>
               <span className="logo-divider"></span>
-              <span className="logo-app-name">ALIGN Ethics Toolkit</span>
+              <span className="logo-app-name">RAISE Ethics Toolkit</span>
             </div>
           </div>
           <div className="nav-right">
@@ -24,8 +24,8 @@ function Landing({ onGetStarted }) {
         <div className="hero-bg-pattern"></div>
         <div className="hero-inner">
           <div className="hero-product-label">
-            <span className="hero-product-name">ALIGN</span>
-            <span className="hero-product-expanded">AI Lifecycle Integrity &amp; Governance Navigator</span>
+            <span className="hero-product-name">RAISE</span>
+            <span className="hero-product-expanded">Responsible AI Standards &amp; Ethics</span>
           </div>
           <h1 className="hero-title">
             Navigate AI Ethics<br />
@@ -151,7 +151,7 @@ function Landing({ onGetStarted }) {
               <div className="lsc-number">01</div>
               <div className="lsc-body">
                 <h3>Describe Your AI Use</h3>
-                <p>Tell ALIGN what you're using AI for — analyzing interviews, writing grants, grading papers. The ethics engine identifies exactly which compliance rules apply to your situation.</p>
+                <p>Tell RAISE what you're using AI for — analyzing interviews, writing grants, grading papers. The ethics engine identifies exactly which compliance rules apply to your situation.</p>
               </div>
               <div className="lsc-arrow">→</div>
             </div>
@@ -263,7 +263,7 @@ function Landing({ onGetStarted }) {
               <img src="/usf-logo.svg" alt="University of South Florida" className="usf-logo-footer" />
               <div className="footer-brand-text">
                 <div className="footer-university-name">University of South Florida</div>
-                <div className="footer-app-name">ALIGN Ethics Toolkit</div>
+                <div className="footer-app-name">RAISE Ethics Toolkit</div>
               </div>
             </div>
             <div className="footer-contact">

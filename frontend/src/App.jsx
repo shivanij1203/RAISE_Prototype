@@ -20,7 +20,7 @@ function App() {
   const [selectedProject, setSelectedProject] = useState(null);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('align_user');
+    const savedUser = localStorage.getItem('raise_user');
     if (savedUser) {
       const user = JSON.parse(savedUser);
       setCurrentUser(user);
@@ -32,14 +32,14 @@ function App() {
   }, []);
 
   function handleLogin(user) {
-    localStorage.setItem('align_user', JSON.stringify(user));
+    localStorage.setItem('raise_user', JSON.stringify(user));
     setCurrentUser(user);
     setUserRole(mapRole(user.role));
     setCurrentView('projects');
   }
 
   function handleLogout() {
-    localStorage.removeItem('align_user');
+    localStorage.removeItem('raise_user');
     setCurrentView('landing');
     setCurrentUser(null);
     setUserRole(null);

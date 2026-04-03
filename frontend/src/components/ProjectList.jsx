@@ -86,7 +86,7 @@ function ProjectList({ role, onSelectProject, onLogout, onViewDashboard, onViewT
       <div className="project-list">
         <header className="project-list-header">
           <div className="header-left">
-            <div className="header-badge">ALIGN</div>
+            <div className="header-badge">RAISE</div>
             <div>
               <h1>My Activities</h1>
               <p className="role-indicator">Loading...</p>
@@ -110,7 +110,7 @@ function ProjectList({ role, onSelectProject, onLogout, onViewDashboard, onViewT
     <div className="project-list">
       <header className="project-list-header">
         <div className="header-left">
-          <div className="header-badge">ALIGN</div>
+          <div className="header-badge">RAISE</div>
           <div>
             <h1>My Activities</h1>
             <p className="role-indicator">

@@ -43,10 +43,10 @@ function Login({ onLogin, onBack }) {
           <button className="btn-back-landing" onClick={onBack}>← Back</button>
         )}
         <div className="login-logo">
-          <span className="logo-badge">ALIGN</span>
+          <span className="logo-badge">RAISE</span>
         </div>
         <h1>{isRegister ? 'Create Account' : 'Sign In'}</h1>
-        <p>ALIGN Ethics Toolkit — {isRegister ? 'USF email required' : 'Welcome back'}</p>
+        <p>RAISE Ethics Toolkit — {isRegister ? 'USF email required' : 'Welcome back'}</p>
 
         <form onSubmit={handleSubmit}>
           {isRegister && (
