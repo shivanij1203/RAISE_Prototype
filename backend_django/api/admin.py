@@ -1,7 +1,15 @@
 from django.contrib import admin
+
 from .models import (
-    UserProfile, ResearchConsent, AssessmentSession, AssessmentResponse,
-    Project, Checkpoint, Decision
+    UserProfile,
+    ResearchConsent,
+    AssessmentSession,
+    AssessmentResponse,
+    Project,
+    Checkpoint,
+    Decision,
+    AITool,
+    CheckpointComment,
 )
 
 admin.site.register(UserProfile)
@@ -11,3 +19,5 @@ admin.site.register(AssessmentResponse)
 admin.site.register(Project)
 admin.site.register(Checkpoint)
 admin.site.register(Decision)
+admin.site.register(AITool)
+admin.site.register(CheckpointComment)
