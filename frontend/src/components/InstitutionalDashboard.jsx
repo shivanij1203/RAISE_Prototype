@@ -51,20 +51,44 @@ function InstitutionalDashboard({ onBack }) {
     ? 'Compliance overview across all activities in the department'
     : `Your personal compliance overview, ${userName}`;
 
+  function renderTopBar() {
+    return (
+      <>
+        <div className="pl-topbar">
+          <div className="pl-topbar-inner">
+            <div className="pl-topbar-brand">
+              <img src="/usf-logo.svg" alt="USF" className="pl-topbar-logo" />
+              <div className="pl-topbar-text">
+                <span className="pl-topbar-uni">University of South Florida</span>
+                <span className="pl-topbar-app">RAISE Ethics Toolkit</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="pl-nav">
+          <div className="pl-nav-inner">
+            <button className="pl-nav-tab" onClick={onBack}>My Activities</button>
+            <button className="pl-nav-tab" onClick={onBack}>AI Tool Registry</button>
+            <button className="pl-nav-tab active">Dashboard</button>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   if (loading && !stats) {
     return (
       <div className="inst-dashboard">
-        <header className="inst-dashboard-header">
-          <button className="back-btn" onClick={onBack}>&larr; Back to Activities</button>
-          <h1>Dashboard</h1>
-        </header>
-        <div className="summary-cards">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="summary-card skeleton-card">
-              <div className="skeleton-line skeleton-title"></div>
-              <div className="skeleton-line skeleton-bar"></div>
-            </div>
-          ))}
+        {renderTopBar()}
+        <div className="inst-dashboard-content">
+          <div className="summary-cards">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="summary-card skeleton-card">
+                <div className="skeleton-line skeleton-title"></div>
+                <div className="skeleton-line skeleton-bar"></div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -73,13 +97,12 @@ function InstitutionalDashboard({ onBack }) {
   if (error) {
     return (
       <div className="inst-dashboard">
-        <header className="inst-dashboard-header">
-          <button className="back-btn" onClick={onBack}>&larr; Back to Activities</button>
-          <h1>Dashboard</h1>
-        </header>
-        <div className="error-banner">
-          {error}
-          <button className="error-retry" onClick={() => loadStats(scope)}>Retry</button>
+        {renderTopBar()}
+        <div className="inst-dashboard-content">
+          <div className="error-banner">
+            {error}
+            <button className="error-retry" onClick={() => loadStats(scope)}>Retry</button>
+          </div>
         </div>
       </div>
     );
@@ -89,31 +112,30 @@ function InstitutionalDashboard({ onBack }) {
 
   return (
     <div className="inst-dashboard">
-      <header className="inst-dashboard-header">
-        <div className="inst-header-left">
-          <button className="back-btn" onClick={onBack}>&larr; Back to Activities</button>
+      {renderTopBar()}
+      <div className="inst-dashboard-content">
+        <div className="inst-dashboard-title-row">
           <div>
-            <h1>{dashboardTitle}</h1>
+            <h1 className="inst-dashboard-heading">{dashboardTitle}</h1>
             <p className="inst-subtitle">{dashboardSubtitle}</p>
           </div>
+          {isFaculty && (
+            <div className="scope-toggle">
+              <button
+                className={`scope-btn ${scope === 'mine' ? 'active' : ''}`}
+                onClick={() => setScope('mine')}
+              >
+                My Activities
+              </button>
+              <button
+                className={`scope-btn ${scope === 'all' ? 'active' : ''}`}
+                onClick={() => setScope('all')}
+              >
+                All Activities
+              </button>
+            </div>
+          )}
         </div>
-        {isFaculty && (
-          <div className="scope-toggle">
-            <button
-              className={`scope-btn ${scope === 'mine' ? 'active' : ''}`}
-              onClick={() => setScope('mine')}
-            >
-              My Activities
-            </button>
-            <button
-              className={`scope-btn ${scope === 'all' ? 'active' : ''}`}
-              onClick={() => setScope('all')}
-            >
-              All Activities
-            </button>
-          </div>
-        )}
-      </header>
 
       {/* Summary Cards */}
       <div className="summary-cards">
@@ -212,6 +234,7 @@ function InstitutionalDashboard({ onBack }) {
             </table>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

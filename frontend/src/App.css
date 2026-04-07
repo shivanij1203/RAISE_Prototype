@@ -2709,9 +2709,9 @@ footer {
 
 /* Project List */
 .project-list {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 2rem;
+  max-width: none;
+  margin: 0;
+  padding: 0;
 }
 
 .project-list-header {
@@ -4084,9 +4084,9 @@ footer {
    INSTITUTIONAL DASHBOARD
    ================================ */
 .inst-dashboard {
-  max-width: 1160px;
-  margin: 0 auto;
-  padding: 2rem 2.5rem;
+  max-width: none;
+  margin: 0;
+  padding: 0;
 }
 
 .inst-dashboard-header {
@@ -4488,9 +4488,9 @@ footer {
 
 /* ===== AI Tool Registry ===== */
 .tool-registry {
-  max-width: 1160px;
-  margin: 0 auto;
-  padding: 2rem 2.5rem;
+  max-width: none;
+  margin: 0;
+  padding: 0;
 }
 
 .tool-registry-header {
@@ -4672,4 +4672,204 @@ footer {
   font-weight: 600;
   padding: 1px 6px;
   border-radius: 8px;
+}
+
+/* ===== USF-Style Project List Top Bar ===== */
+.pl-topbar {
+  background: #006747;
+  padding: 0;
+}
+
+.pl-topbar-inner {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0.875rem 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pl-topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.pl-topbar-logo {
+  height: 42px;
+  width: auto;
+  filter: brightness(0) invert(1);
+}
+
+.pl-topbar-text {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid rgba(255,255,255,0.25);
+  padding-left: 0.875rem;
+}
+
+.pl-topbar-uni {
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.pl-topbar-app {
+  color: rgba(255,255,255,0.55);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.pl-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.pl-topbar-role {
+  color: rgba(255,255,255,0.7);
+  font-size: 0.8125rem;
+}
+
+.pl-signout {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.3);
+  color: #fff;
+  font-size: 0.8125rem;
+  padding: 0.375rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.pl-signout:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+/* Tab Navigation */
+.pl-nav {
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.pl-nav-inner {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0 2.5rem;
+  display: flex;
+  gap: 0;
+}
+
+.pl-nav-tab {
+  background: none;
+  border: none;
+  padding: 0.875rem 1.5rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.15s;
+}
+
+.pl-nav-tab:hover {
+  color: #006747;
+}
+
+.pl-nav-tab.active {
+  color: #006747;
+  font-weight: 600;
+  border-bottom-color: #006747;
+}
+
+/* Override old header styles for project list */
+.project-list {
+  background: #f8fafc;
+  min-height: 100vh;
+}
+
+.project-list .project-list-header {
+  display: none;
+}
+
+.project-list .projects-grid,
+.project-list .empty-state,
+.project-list .error-banner {
+  max-width: 1160px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 2.5rem;
+  padding-right: 2.5rem;
+}
+
+.project-list .projects-grid {
+  padding-top: 2rem;
+}
+
+.project-list .empty-state {
+  padding-top: 4rem;
+}
+
+/* ===== Tool Registry Content Layout ===== */
+.tool-registry {
+  background: #f8fafc;
+  min-height: 100vh;
+}
+
+.tool-registry-content {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 2rem 2.5rem;
+}
+
+.tool-registry-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+
+.tool-registry-heading {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f2518;
+  margin: 0;
+}
+
+.tool-registry-header {
+  display: none;
+}
+
+/* ===== Dashboard Content Layout ===== */
+.inst-dashboard {
+  background: #f8fafc;
+  min-height: 100vh;
+}
+
+.inst-dashboard-content {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 2rem 2.5rem;
+}
+
+.inst-dashboard-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+}
+
+.inst-dashboard-heading {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f2518;
+  margin: 0;
+}
+
+.inst-dashboard-header {
+  display: none;
 }

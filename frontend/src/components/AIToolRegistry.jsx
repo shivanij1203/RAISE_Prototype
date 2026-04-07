@@ -92,17 +92,32 @@ function AIToolRegistry({ role, onBack }) {
   if (loading) {
     return (
       <div className="tool-registry">
-        <header className="tool-registry-header">
-          <button className="back-btn" onClick={onBack}>&larr; Back to Activities</button>
-          <h1>AI Tool Registry</h1>
-        </header>
-        <div className="projects-grid">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="project-card skeleton-card">
-              <div className="skeleton-line skeleton-title"></div>
-              <div className="skeleton-line skeleton-text"></div>
+        <div className="pl-topbar">
+          <div className="pl-topbar-inner">
+            <div className="pl-topbar-brand">
+              <img src="/usf-logo.svg" alt="USF" className="pl-topbar-logo" />
+              <div className="pl-topbar-text">
+                <span className="pl-topbar-uni">University of South Florida</span>
+                <span className="pl-topbar-app">RAISE Ethics Toolkit</span>
+              </div>
             </div>
-          ))}
+          </div>
+        </div>
+        <div className="pl-nav">
+          <div className="pl-nav-inner">
+            <button className="pl-nav-tab" onClick={onBack}>My Activities</button>
+            <button className="pl-nav-tab active">AI Tool Registry</button>
+          </div>
+        </div>
+        <div className="tool-registry-content">
+          <div className="tool-grid">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="tool-card skeleton-card">
+                <div className="skeleton-line skeleton-title"></div>
+                <div className="skeleton-line skeleton-text"></div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -110,23 +125,46 @@ function AIToolRegistry({ role, onBack }) {
 
   return (
     <div className="tool-registry">
-      <header className="tool-registry-header">
-        <div className="tool-header-left">
-          <button className="back-btn" onClick={onBack}>&larr; Back to Activities</button>
+      {/* USF-style top bar */}
+      <div className="pl-topbar">
+        <div className="pl-topbar-inner">
+          <div className="pl-topbar-brand">
+            <img src="/usf-logo.svg" alt="USF" className="pl-topbar-logo" />
+            <div className="pl-topbar-text">
+              <span className="pl-topbar-uni">University of South Florida</span>
+              <span className="pl-topbar-app">RAISE Ethics Toolkit</span>
+            </div>
+          </div>
+          <div className="pl-topbar-right">
+            {isFaculty && (
+              <button className="pl-signout" onClick={() => { setEditingTool(null); setFormData({ name: '', description: '', vendor: '', category: '', status: 'under_review', risk_notes: '' }); setShowAddModal(true); }}>
+                + Add Tool
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Tab navigation */}
+      <div className="pl-nav">
+        <div className="pl-nav-inner">
+          <button className="pl-nav-tab" onClick={onBack}>My Activities</button>
+          <button className="pl-nav-tab active">AI Tool Registry</button>
+          <button className="pl-nav-tab" onClick={onBack}>Dashboard</button>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="tool-registry-content">
+        <div className="tool-registry-title-row">
           <div>
-            <h1>AI Tool Registry</h1>
+            <h2 className="tool-registry-heading">AI Tool Registry</h2>
             <p className="tool-subtitle">{tools.length} tool{tools.length !== 1 ? 's' : ''} registered across the institution</p>
           </div>
         </div>
-        {isFaculty && (
-          <button className="btn-primary" onClick={() => { setEditingTool(null); setFormData({ name: '', description: '', vendor: '', category: '', status: 'under_review', risk_notes: '' }); setShowAddModal(true); }}>
-            + Add Tool
-          </button>
-        )}
-      </header>
 
-      {/* Filters */}
-      <div className="tool-filters">
+        {/* Filters */}
+        <div className="tool-filters">
         <input
           type="text"
           placeholder="Search tools..."
@@ -177,6 +215,8 @@ function AIToolRegistry({ role, onBack }) {
           ))}
         </div>
       )}
+
+      </div>
 
       {/* Add/Edit Modal */}
       {showAddModal && (

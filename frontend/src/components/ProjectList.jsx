@@ -84,16 +84,23 @@ function ProjectList({ role, onSelectProject, onLogout, onViewDashboard, onViewT
   if (loading) {
     return (
       <div className="project-list">
-        <header className="project-list-header">
-          <div className="header-left">
-            <div className="header-badge">RAISE</div>
-            <div>
-              <h1>My Activities</h1>
-              <p className="role-indicator">Loading...</p>
+        <div className="pl-topbar">
+          <div className="pl-topbar-inner">
+            <div className="pl-topbar-brand">
+              <img src="/usf-logo.svg" alt="USF" className="pl-topbar-logo" />
+              <div className="pl-topbar-text">
+                <span className="pl-topbar-uni">University of South Florida</span>
+                <span className="pl-topbar-app">RAISE Ethics Toolkit</span>
+              </div>
             </div>
           </div>
-        </header>
-        <div className="projects-grid">
+        </div>
+        <div className="pl-nav">
+          <div className="pl-nav-inner">
+            <button className="pl-nav-tab active">My Activities</button>
+          </div>
+        </div>
+        <div className="projects-grid" style={{ padding: '2rem 2.5rem', maxWidth: '1160px', margin: '0 auto' }}>
           {[1, 2, 3].map(i => (
             <div key={i} className="project-card skeleton-card">
               <div className="skeleton-line skeleton-title"></div>
@@ -108,30 +115,35 @@ function ProjectList({ role, onSelectProject, onLogout, onViewDashboard, onViewT
 
   return (
     <div className="project-list">
-      <header className="project-list-header">
-        <div className="header-left">
-          <div className="header-badge">RAISE</div>
-          <div>
-            <h1>My Activities</h1>
-            <p className="role-indicator">
+      {/* USF-style top bar */}
+      <div className="pl-topbar">
+        <div className="pl-topbar-inner">
+          <div className="pl-topbar-brand">
+            <img src="/usf-logo.svg" alt="USF" className="pl-topbar-logo" />
+            <div className="pl-topbar-text">
+              <span className="pl-topbar-uni">University of South Florida</span>
+              <span className="pl-topbar-app">RAISE Ethics Toolkit</span>
+            </div>
+          </div>
+          <div className="pl-topbar-right">
+            <span className="pl-topbar-role">
               {role === 'pi' ? 'Principal Investigator' :
                role === 'student' ? 'Student Researcher' :
                'Compliance Officer'}
-            </p>
+            </span>
+            <button className="pl-signout" onClick={onLogout}>Sign Out</button>
           </div>
         </div>
-        <div className="header-actions">
-          <button className="btn-secondary" onClick={onViewToolRegistry}>
-            AI Tools
-          </button>
-          <button className="btn-secondary" onClick={onViewDashboard}>
-            Dashboard
-          </button>
-          <button className="btn-secondary" onClick={onLogout}>
-            Sign Out
-          </button>
+      </div>
+
+      {/* Tab navigation */}
+      <div className="pl-nav">
+        <div className="pl-nav-inner">
+          <button className="pl-nav-tab active">My Activities</button>
+          <button className="pl-nav-tab" onClick={onViewToolRegistry}>AI Tool Registry</button>
+          <button className="pl-nav-tab" onClick={onViewDashboard}>Dashboard</button>
         </div>
-      </header>
+      </div>
 
       {loadError && (
         <div className="error-banner">
