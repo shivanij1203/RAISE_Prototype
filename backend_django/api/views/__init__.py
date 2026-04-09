@@ -1,6 +1,6 @@
 from .auth import register, login_view, logout_view, me
 from .projects import project_list_create, project_detail, checkpoint_toggle, decision_create
-from .tools import ai_tool_list_create, ai_tool_update
+from .tools import ai_tool_list_create, ai_tool_update, ai_tool_detail
 from .dashboard import dashboard_stats
 from .comments import checkpoint_comments
 from .ethics import ethics_start, ethics_node, ethics_evaluate, ethics_scenarios

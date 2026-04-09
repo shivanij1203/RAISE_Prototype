@@ -43,6 +43,7 @@ class Decision(models.Model):
     notes = models.TextField(blank=True)
     proof_type = models.CharField(max_length=20, blank=True)
     proof_value = models.CharField(max_length=500, blank=True)
+    tool_used = models.ForeignKey('api.AITool', on_delete=models.SET_NULL, null=True, blank=True, related_name='decisions')
     logged_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:

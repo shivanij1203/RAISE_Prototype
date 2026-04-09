@@ -34,7 +34,7 @@ def serialize_project(project: Project) -> dict[str, Any]:
         })
 
     decisions: list[dict[str, Any]] = []
-    for d in project.decisions.all().order_by('-logged_at'):
+    for d in project.decisions.select_related('tool_used').order_by('-logged_at'):
         decisions.append({
             'id': str(d.id),
             'checkpoint': d.checkpoint.checkpoint_id,
@@ -42,6 +42,7 @@ def serialize_project(project: Project) -> dict[str, Any]:
             'notes': d.notes,
             'proofType': d.proof_type or None,
             'proofValue': d.proof_value or None,
+            'toolUsed': {'id': d.tool_used.id, 'name': d.tool_used.name} if d.tool_used else None,
             'loggedAt': d.logged_at.isoformat(),
         })
 
@@ -99,16 +100,24 @@ def project_list_create(request: Request) -> Response:
     return Response(serialize_project(project), status=status.HTTP_201_CREATED)
 
 
-@api_view(['GET'])
+@api_view(['GET', 'PUT'])
 def project_detail(request: Request, project_id: int) -> Response:
-    """Get a single project with checkpoints and decisions."""
+    """Get or update a single project."""
     if not request.user.is_authenticated:
         return Response({"error": "Not logged in"}, status=status.HTTP_401_UNAUTHORIZED)
 
     try:
         project = Project.objects.get(id=project_id, user=request.user)
     except Project.DoesNotExist:
-        return Response({"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"error": "Activity not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'PUT':
+        if 'name' in request.data:
+            project.name = request.data['name'].strip()
+        if 'description' in request.data:
+            project.description = request.data['description']
+        project.save()
+        return Response(serialize_project(project))
 
     return Response(serialize_project(project))
 
@@ -165,6 +174,16 @@ def decision_create(request: Request, project_id: int) -> Response:
     except Checkpoint.DoesNotExist:
         return Response({"error": "Checkpoint not found"}, status=status.HTTP_404_NOT_FOUND)
 
+    # Resolve tool_used if provided
+    tool_used = None
+    tool_used_id = request.data.get('toolUsedId')
+    if tool_used_id:
+        from api.models import AITool
+        try:
+            tool_used = AITool.objects.get(id=tool_used_id)
+        except AITool.DoesNotExist:
+            pass
+
     decision = Decision.objects.create(
         project=project,
         checkpoint=checkpoint,
@@ -172,6 +191,7 @@ def decision_create(request: Request, project_id: int) -> Response:
         notes=request.data.get('notes', ''),
         proof_type=request.data.get('proofType', ''),
         proof_value=request.data.get('proofValue', ''),
+        tool_used=tool_used,
     )
 
     # Auto-complete the checkpoint if not already
@@ -187,6 +207,7 @@ def decision_create(request: Request, project_id: int) -> Response:
         'notes': decision.notes,
         'proofType': decision.proof_type or None,
         'proofValue': decision.proof_value or None,
+        'toolUsed': {'id': tool_used.id, 'name': tool_used.name} if tool_used else None,
         'loggedAt': decision.logged_at.isoformat(),
         'checkpointCompleted': checkpoint.completed,
         'checkpointCompletedAt': checkpoint.completed_at.isoformat() if checkpoint.completed_at else None,

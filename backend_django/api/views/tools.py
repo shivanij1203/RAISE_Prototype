@@ -5,13 +5,15 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework import status
 
-from api.models import AITool, UserProfile
+from api.models import AITool, UserProfile, Project
 
 
-def serialize_ai_tool(tool: AITool) -> dict[str, Any]:
+def serialize_ai_tool(tool: AITool, include_guidance: bool = False) -> dict[str, Any]:
     """Serialize an AITool instance to a camelCase dict for the frontend."""
-    return {
+    result = {
         'id': tool.id,
+        'toolType': tool.tool_type,
+        'toolTypeDisplay': tool.get_tool_type_display(),
         'name': tool.name,
         'description': tool.description,
         'vendor': tool.vendor,
@@ -20,10 +22,22 @@ def serialize_ai_tool(tool: AITool) -> dict[str, Any]:
         'status': tool.status,
         'statusDisplay': tool.get_status_display(),
         'riskNotes': tool.risk_notes,
+        'websiteUrl': tool.website_url,
         'addedBy': tool.added_by.first_name or tool.added_by.email if tool.added_by else None,
         'createdAt': tool.created_at.isoformat(),
         'projectCount': tool.projects.count(),
+        # Data handling
+        'retainsData': tool.retains_data,
+        'dataRetentionDetails': tool.data_retention_details,
+        'sendsToThirdParty': tool.sends_to_third_party,
+        'hipaaCompliant': tool.hipaa_compliant,
+        'ferpaCompliant': tool.ferpa_compliant,
+        'hasEnterprisePlan': tool.has_enterprise_plan,
+        'recommendedUseCases': tool.recommended_use_cases or [],
     }
+    if include_guidance:
+        result['complianceGuidance'] = tool.compliance_guidance or {}
+    return result
 
 
 @api_view(['GET', 'POST'])
@@ -34,9 +48,12 @@ def ai_tool_list_create(request: Request) -> Response:
 
     if request.method == 'GET':
         tools = AITool.objects.all()
+        tool_type = request.query_params.get('tool_type')
         category = request.query_params.get('category')
         tool_status = request.query_params.get('status')
         search = request.query_params.get('search', '').strip()
+        if tool_type:
+            tools = tools.filter(tool_type=tool_type)
         if category:
             tools = tools.filter(category=category)
         if tool_status:
@@ -56,12 +73,14 @@ def ai_tool_list_create(request: Request) -> Response:
         return Response({"error": "Name and category are required"}, status=status.HTTP_400_BAD_REQUEST)
 
     tool = AITool.objects.create(
+        tool_type=request.data.get('tool_type', 'ai'),
         name=name,
         description=request.data.get('description', ''),
         vendor=request.data.get('vendor', ''),
         category=category,
         status=request.data.get('status', 'under_review'),
         risk_notes=request.data.get('risk_notes', ''),
+        website_url=request.data.get('website_url', ''),
         added_by=request.user,
     )
     return Response(serialize_ai_tool(tool), status=status.HTTP_201_CREATED)
@@ -82,9 +101,46 @@ def ai_tool_update(request: Request, tool_id: int) -> Response:
     except AITool.DoesNotExist:
         return Response({"error": "Tool not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    for field in ['name', 'description', 'vendor', 'category', 'status', 'risk_notes']:
+    for field in ['name', 'description', 'vendor', 'category', 'status', 'risk_notes', 'tool_type', 'website_url']:
         if field in request.data:
             setattr(tool, field, request.data[field])
     tool.save()
 
     return Response(serialize_ai_tool(tool))
+
+
+@api_view(['GET'])
+def ai_tool_detail(request: Request, tool_id: int) -> Response:
+    """Get tool details with compliance guidance and activity history."""
+    if not request.user.is_authenticated:
+        return Response({"error": "Not logged in"}, status=status.HTTP_401_UNAUTHORIZED)
+
+    try:
+        tool = AITool.objects.get(id=tool_id)
+    except AITool.DoesNotExist:
+        return Response({"error": "Tool not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    tool_data = serialize_ai_tool(tool, include_guidance=True)
+
+    # Activity history — projects using this tool with their use case and compliance status
+    projects_using = tool.projects.select_related('user').prefetch_related('checkpoints').all()
+    activity_history = []
+    for p in projects_using:
+        cps = list(p.checkpoints.all())
+        total = len(cps)
+        done = sum(1 for c in cps if c.completed)
+        pct = round((done / total) * 100) if total > 0 else 0
+        activity_history.append({
+            'id': str(p.id),
+            'name': p.name,
+            'owner': p.user.first_name or p.user.email,
+            'aiUseCase': p.ai_use_case,
+            'compliancePct': pct,
+            'checkpointsDone': done,
+            'checkpointsTotal': total,
+            'createdAt': p.created_at.isoformat(),
+        })
+
+    tool_data['activityHistory'] = activity_history
+
+    return Response(tool_data)

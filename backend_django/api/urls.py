@@ -2,7 +2,7 @@ from django.urls import path
 
 from .views.auth import register, login_view, logout_view, me
 from .views.projects import project_list_create, project_detail, checkpoint_toggle, decision_create
-from .views.tools import ai_tool_list_create, ai_tool_update
+from .views.tools import ai_tool_list_create, ai_tool_update, ai_tool_detail
 from .views.dashboard import dashboard_stats
 from .views.comments import checkpoint_comments
 from .views.ethics import ethics_start, ethics_node, ethics_evaluate, ethics_scenarios
@@ -31,6 +31,7 @@ urlpatterns = [
     # AI Tool Registry endpoints
     path('tools', ai_tool_list_create, name='tool-list-create'),
     path('tools/<int:tool_id>', ai_tool_update, name='tool-update'),
+    path('tools/<int:tool_id>/detail', ai_tool_detail, name='tool-detail'),
 
     # Checkpoint Comment endpoints
     path('projects/<int:project_id>/checkpoints/<str:checkpoint_id>/comments',
