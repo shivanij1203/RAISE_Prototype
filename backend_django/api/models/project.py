@@ -5,6 +5,11 @@ from django.contrib.auth.models import User
 class Project(models.Model):
     """Tracks a research activity and its compliance status."""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='projects')
+    faculty_advisor = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='advised_projects',
+        help_text='Faculty advisor who shares access to this activity'
+    )
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     ai_use_case = models.CharField(max_length=50)

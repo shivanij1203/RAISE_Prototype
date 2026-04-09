@@ -6,8 +6,23 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.utils import timezone
 
+from django.contrib.auth.models import User
+from django.db.models import Q
+
 from api.models import Project, Checkpoint, Decision, AITool, UserProfile
 from api.services.checkpoint_generator import generate_checkpoints_for_use_case
+
+
+def get_user_projects(user):
+    """Get projects owned by user OR where user is faculty advisor."""
+    return Project.objects.filter(
+        Q(user=user) | Q(faculty_advisor=user)
+    ).distinct().order_by('-created_at')
+
+
+def user_can_access_project(user, project):
+    """Check if user owns or advises this project."""
+    return project.user == user or project.faculty_advisor == user
 
 
 def serialize_project(project: Project) -> dict[str, Any]:
@@ -53,6 +68,12 @@ def serialize_project(project: Project) -> dict[str, Any]:
         'aiUseCase': project.ai_use_case,
         'status': project.status,
         'createdAt': project.created_at.isoformat(),
+        'owner': project.user.first_name or project.user.email,
+        'ownerEmail': project.user.email,
+        'facultyAdvisor': {
+            'name': project.faculty_advisor.first_name or project.faculty_advisor.email,
+            'email': project.faculty_advisor.email,
+        } if project.faculty_advisor else None,
         'checkpoints': checkpoints,
         'decisions': decisions,
         'aiTools': [
@@ -69,7 +90,7 @@ def project_list_create(request: Request) -> Response:
         return Response({"error": "Not logged in"}, status=status.HTTP_401_UNAUTHORIZED)
 
     if request.method == 'GET':
-        projects = Project.objects.filter(user=request.user).order_by('-created_at')
+        projects = get_user_projects(request.user)
         return Response([serialize_project(p) for p in projects])
 
     # POST -- create
@@ -79,11 +100,21 @@ def project_list_create(request: Request) -> Response:
     if not name:
         return Response({"error": "Project name is required"}, status=status.HTTP_400_BAD_REQUEST)
 
+    # Look up faculty advisor by email if provided
+    faculty_advisor = None
+    advisor_email = request.data.get('faculty_advisor_email', '').strip().lower()
+    if advisor_email:
+        try:
+            faculty_advisor = User.objects.get(email=advisor_email)
+        except User.DoesNotExist:
+            pass  # Silently skip if not found — they can invite later
+
     project = Project.objects.create(
         user=request.user,
         name=name,
         description=request.data.get('description', ''),
         ai_use_case=ai_use_case,
+        faculty_advisor=faculty_advisor,
     )
 
     # Generate checkpoints
@@ -107,15 +138,32 @@ def project_detail(request: Request, project_id: int) -> Response:
         return Response({"error": "Not logged in"}, status=status.HTTP_401_UNAUTHORIZED)
 
     try:
-        project = Project.objects.get(id=project_id, user=request.user)
+        project = Project.objects.get(id=project_id)
     except Project.DoesNotExist:
         return Response({"error": "Activity not found"}, status=status.HTTP_404_NOT_FOUND)
 
+    if not user_can_access_project(request.user, project):
+        return Response({"error": "Activity not found"}, status=status.HTTP_404_NOT_FOUND)
+
     if request.method == 'PUT':
-        if 'name' in request.data:
-            project.name = request.data['name'].strip()
-        if 'description' in request.data:
-            project.description = request.data['description']
+        # Only owner can edit name/description
+        if project.user == request.user:
+            if 'name' in request.data:
+                project.name = request.data['name'].strip()
+            if 'description' in request.data:
+                project.description = request.data['description']
+
+        # Owner can set/change faculty advisor
+        faculty_email = request.data.get('faculty_advisor_email', '').strip().lower()
+        if faculty_email and project.user == request.user:
+            try:
+                advisor = User.objects.get(email=faculty_email)
+                project.faculty_advisor = advisor
+            except User.DoesNotExist:
+                return Response({"error": f"No account found for {faculty_email}"}, status=status.HTTP_400_BAD_REQUEST)
+        elif faculty_email == '' and 'faculty_advisor_email' in request.data:
+            project.faculty_advisor = None
+
         project.save()
         return Response(serialize_project(project))
 
@@ -129,9 +177,12 @@ def checkpoint_toggle(request: Request, project_id: int, checkpoint_id: str) -> 
         return Response({"error": "Not logged in"}, status=status.HTTP_401_UNAUTHORIZED)
 
     try:
-        project = Project.objects.get(id=project_id, user=request.user)
+        project = Project.objects.get(id=project_id)
     except Project.DoesNotExist:
-        return Response({"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"error": "Activity not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if not user_can_access_project(request.user, project):
+        return Response({"error": "Activity not found"}, status=status.HTTP_404_NOT_FOUND)
 
     try:
         checkpoint = Checkpoint.objects.get(project=project, checkpoint_id=checkpoint_id)
@@ -156,9 +207,12 @@ def decision_create(request: Request, project_id: int) -> Response:
         return Response({"error": "Not logged in"}, status=status.HTTP_401_UNAUTHORIZED)
 
     try:
-        project = Project.objects.get(id=project_id, user=request.user)
+        project = Project.objects.get(id=project_id)
     except Project.DoesNotExist:
-        return Response({"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"error": "Activity not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if not user_can_access_project(request.user, project):
+        return Response({"error": "Activity not found"}, status=status.HTTP_404_NOT_FOUND)
 
     checkpoint_id = request.data.get('checkpoint')
     description = request.data.get('description', '').strip()
