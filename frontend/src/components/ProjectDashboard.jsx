@@ -1,19 +1,28 @@
 import { useState, useEffect } from 'react';
 import html2pdf from 'html2pdf.js';
-import { toggleCheckpoint, logDecision, fetchProject } from '../services/api';
+import { toggleCheckpoint, logDecision, fetchProject, updateProject, fetchTools } from '../services/api';
 import EthicsAssistant from './EthicsAssistant';
 import Assessment from './Assessment';
 import CheckpointComments from './CheckpointComments';
+import UserMenu from './UserMenu';
 
-function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpdated }) {
+function ProjectDashboard({ project: initialProject, user, role, onBack, onLogout, onProjectUpdated, onViewToolRegistry, onViewDashboard }) {
   const [project, setProject] = useState(initialProject);
   const [activeTab, setActiveTab] = useState('checkpoints');
   const [showLogModal, setShowLogModal] = useState(false);
-  const [newDecision, setNewDecision] = useState({ checkpoint: '', description: '', notes: '', proofType: '', proofValue: '' });
+  const [newDecision, setNewDecision] = useState({ checkpoint: '', description: '', notes: '', proofType: '', proofValue: '', toolUsedId: '' });
   const [expandedCheckpoint, setExpandedCheckpoint] = useState(null);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState('');
   const [ethicsReviewPhase, setEthicsReviewPhase] = useState('assistant');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editName, setEditName] = useState(project.name);
+  const [editDescription, setEditDescription] = useState(project.description || '');
+  const [availableTools, setAvailableTools] = useState([]);
+
+  useEffect(() => {
+    fetchTools().then(setAvailableTools).catch(() => {});
+  }, []);
 
   // Refresh project data from API
   async function refreshProject() {
@@ -89,6 +98,7 @@ function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpda
         notes: newDecision.notes,
         proofType: newDecision.proofType || '',
         proofValue: newDecision.proofValue || '',
+        toolUsedId: newDecision.toolUsedId || null,
       });
 
       // Update local state with the new decision
@@ -99,6 +109,7 @@ function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpda
         notes: result.notes,
         proofType: result.proofType,
         proofValue: result.proofValue,
+        toolUsed: result.toolUsed,
         loggedAt: result.loggedAt,
       };
 
@@ -159,145 +170,133 @@ function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpda
       ? 'All compliance steps are complete. This project has passed its ethics review.'
       : `This project is ${pct}% compliant. ${pendingCount} item${pendingCount > 1 ? 's' : ''} still need${pendingCount === 1 ? 's' : ''} attention.`;
 
+    const riskLabel = risk.overallRisk.charAt(0).toUpperCase() + risk.overallRisk.slice(1);
     const categories = [...new Set(project.checkpoints.map(c => c.category))];
+    const now = new Date();
 
     const html = `
-    <div style="font-family: 'Helvetica Neue', Arial, sans-serif; color: #1e293b; line-height: 1.5; padding: 0;">
-      <!-- HEADER -->
-      <div style="background: #006747; color: #fff; padding: 32px 36px; border-radius: 0;">
-        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.7; margin-bottom: 4px;">AI Ethics Compliance Report</div>
-        <div style="font-size: 28px; font-weight: 800; letter-spacing: -0.5px;">${project.name}</div>
-        <div style="font-size: 12px; opacity: 0.6; margin-top: 6px;">
-          ${useCaseLabels[project.aiUseCase] || 'Not specified'} &nbsp;|&nbsp;
-          Created ${new Date(project.createdAt).toLocaleDateString()} &nbsp;|&nbsp;
-          Report generated ${new Date().toLocaleDateString()}
-        </div>
-      </div>
-
-      <!-- AT A GLANCE -->
-      <div style="padding: 28px 36px 20px;">
-        <div style="font-size: 16px; font-weight: 700; color: #006747; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #006747; padding-bottom: 6px;">
-          At a Glance
-        </div>
-        <div style="font-size: 15px; margin-bottom: 14px; color: #334155;">
-          ${summaryLine}
-        </div>
-        <!-- Progress bar -->
-        <div style="background: #e2e8f0; border-radius: 6px; height: 14px; overflow: hidden; margin-bottom: 10px;">
-          <div style="background: ${pct === 100 ? '#16a34a' : pct >= 50 ? '#d97706' : '#94a3b8'}; height: 100%; width: ${pct}%; border-radius: 6px;"></div>
-        </div>
-        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-bottom: 18px;">
-          <span>${completedCount} of ${totalCount} steps complete</span>
-          <span style="font-weight: 700; color: ${pct === 100 ? '#16a34a' : '#1e293b'};">${pct}%</span>
-        </div>
-        <!-- Risk + Stats row -->
-        <div style="display: flex; gap: 16px; margin-bottom: 6px;">
-          <div style="flex: 1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px;">
-            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 4px;">Risk Level</div>
-            <div style="font-size: 16px; font-weight: 700; color: ${riskColors[risk.overallRisk]};">${risk.overallRisk.charAt(0).toUpperCase() + risk.overallRisk.slice(1)}</div>
-            <div style="font-size: 12px; color: #64748b; margin-top: 2px;">${riskLabels[risk.overallRisk]}</div>
+    <div style="font-family: Georgia, 'Times New Roman', serif; color: #1a1a1a; line-height: 1.45; padding: 0; max-width: 800px; margin: 0 auto;">
+      <!-- LETTERHEAD -->
+      <div style="border-bottom: 3px solid #006747; padding-bottom: 10px; margin-bottom: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+          <div>
+            <div style="font-family: Arial, sans-serif; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #006747; font-weight: 700;">University of South Florida</div>
+            <div style="font-family: Arial, sans-serif; font-size: 9px; color: #666; margin-top: 2px;">Office of Research Compliance</div>
           </div>
-          <div style="flex: 1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px;">
-            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 4px;">Decisions Logged</div>
-            <div style="font-size: 16px; font-weight: 700;">${decisions.length}</div>
-            <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Each decision creates a timestamped record in your audit trail.</div>
+          <div style="text-align: right;">
+            <div style="font-family: Arial, sans-serif; font-size: 9px; color: #666;">4202 E. Fowler Avenue</div>
+            <div style="font-family: Arial, sans-serif; font-size: 9px; color: #666;">Tampa, FL 33620</div>
           </div>
         </div>
       </div>
 
-      <!-- WHAT ARE COMPLIANCE CHECKPOINTS -->
-      <div style="padding: 0 36px 10px;">
-        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px 16px; font-size: 12px; color: #166534; line-height: 1.6;">
-          <strong>What is this report?</strong> This document tracks whether your research project follows ethical guidelines for using AI. Each "checkpoint" is a specific step — like confirming IRB approval or planning how to disclose AI use. When all checkpoints are complete, your project meets compliance standards.
-        </div>
+      <!-- TITLE -->
+      <div style="text-align: center; margin-bottom: 10px;">
+        <div style="font-size: 17px; font-weight: 700; color: #1a1a1a; margin-bottom: 2px;">Ethics Compliance Report</div>
+        <div style="font-size: 11px; color: #555;">Generated ${now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
       </div>
 
-      <!-- CHECKPOINT DETAIL BY CATEGORY -->
-      <div style="padding: 20px 36px;">
-        <div style="font-size: 16px; font-weight: 700; color: #006747; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #006747; padding-bottom: 6px;">
-          Compliance Checklist
-        </div>
+      <!-- ABOUT THIS REPORT -->
+      <div style="font-size: 10px; color: #444; line-height: 1.5; margin-bottom: 12px; padding: 6px 10px; border-left: 3px solid #006747; background: #fafafa;">
+        This report documents the ethics compliance status for an activity involving the use of artificial intelligence. Produced by RAISE (Responsible AI Standards &amp; Ethics) at the University of South Florida, it includes a summary of the activity, required compliance steps, decisions made, and any outstanding items. Intended for faculty, researchers, students, and compliance officers.
+      </div>
+
+      <!-- ACTIVITY INFORMATION TABLE -->
+      <div style="margin-bottom: 16px;">
+        <div style="font-family: Arial, sans-serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #006747; margin-bottom: 6px;">1. Activity Information</div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+          <tr><td style="border: 1px solid #ccc; padding: 6px 10px; background: #f5f5f5; font-weight: 600; width: 180px;">Activity Name</td><td style="border: 1px solid #ccc; padding: 6px 10px;">${project.name}</td></tr>
+          <tr><td style="border: 1px solid #ccc; padding: 6px 10px; background: #f5f5f5; font-weight: 600;">Use Case</td><td style="border: 1px solid #ccc; padding: 6px 10px;">${useCaseLabels[project.aiUseCase] || 'Not specified'}</td></tr>
+          <tr><td style="border: 1px solid #ccc; padding: 6px 10px; background: #f5f5f5; font-weight: 600;">Description</td><td style="border: 1px solid #ccc; padding: 6px 10px;">${project.description || 'None provided'}</td></tr>
+          <tr><td style="border: 1px solid #ccc; padding: 6px 10px; background: #f5f5f5; font-weight: 600;">Date Created</td><td style="border: 1px solid #ccc; padding: 6px 10px;">${new Date(project.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</td></tr>
+          <tr><td style="border: 1px solid #ccc; padding: 6px 10px; background: #f5f5f5; font-weight: 600;">Compliance Status</td><td style="border: 1px solid #ccc; padding: 6px 10px;">${pct}% complete (${completedCount} of ${totalCount} steps)</td></tr>
+          <tr><td style="border: 1px solid #ccc; padding: 6px 10px; background: #f5f5f5; font-weight: 600;">Risk Level</td><td style="border: 1px solid #ccc; padding: 6px 10px; color: ${riskColors[risk.overallRisk]}; font-weight: 600;">${riskLabel}</td></tr>
+          <tr><td style="border: 1px solid #ccc; padding: 6px 10px; background: #f5f5f5; font-weight: 600;">Decisions Logged</td><td style="border: 1px solid #ccc; padding: 6px 10px;">${decisions.length}</td></tr>
+        </table>
+      </div>
+
+      <!-- COMPLIANCE CHECKLIST TABLE -->
+      <div style="margin-bottom: 16px;">
+        <div style="font-family: Arial, sans-serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #006747; margin-bottom: 6px;">2. Compliance Checklist</div>
         ${categories.map(category => {
           const catCps = project.checkpoints.filter(c => c.category === category);
           const catDone = catCps.filter(c => c.completed).length;
           return `
-          <div style="margin-bottom: 18px;">
-            <div style="font-size: 13px; font-weight: 700; color: #475569; margin-bottom: 8px; display: flex; justify-content: space-between;">
-              <span>${category}</span>
-              <span style="color: #94a3b8;">${catDone}/${catCps.length}</span>
-            </div>
+          <div style="font-size: 10px; font-weight: 700; color: #333; margin: 10px 0 3px; text-transform: uppercase;">${category} (${catDone}/${catCps.length})</div>
+          <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 2px;">
+            <tr style="background: #f5f5f5;">
+              <th style="border: 1px solid #ccc; padding: 3px 6px; text-align: left; width: 55%;">Checkpoint</th>
+              <th style="border: 1px solid #ccc; padding: 3px 6px; text-align: left; width: 15%;">Assigned To</th>
+              <th style="border: 1px solid #ccc; padding: 3px 6px; text-align: center; width: 12%;">Status</th>
+              <th style="border: 1px solid #ccc; padding: 3px 6px; text-align: left; width: 18%;">Date</th>
+            </tr>
             ${catCps.map(cp => {
               const done = cp.completed;
-              const assignedLabel = cp.assignedTo === 'pi' ? 'Faculty / PI' : cp.assignedTo === 'student' ? 'Student' : 'Compliance';
+              const assignedLabel = cp.assignedTo === 'pi' ? 'Faculty / PI' : 'Student';
               return `
-              <div style="display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f1f5f9;">
-                <div style="width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; margin-top: 1px;
-                  background: ${done ? '#dcfce7' : '#fef2f2'}; color: ${done ? '#16a34a' : '#dc2626'}; border: 1.5px solid ${done ? '#86efac' : '#fecaca'};">
-                  ${done ? '&#10003;' : '!'}
-                </div>
-                <div style="flex: 1;">
-                  <div style="font-size: 13px; font-weight: 600; color: #1e293b;">${cp.label}</div>
-                  <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">
-                    Assigned to: ${assignedLabel}
-                    ${done && cp.completedAt ? ` &nbsp;|&nbsp; Completed: ${new Date(cp.completedAt).toLocaleDateString()}` : ''}
-                    ${!done ? ' &nbsp;|&nbsp; <span style="color: #dc2626; font-weight: 600;">Pending</span>' : ''}
-                  </div>
-                  ${cp.what ? `<div style="font-size: 11px; color: #64748b; margin-top: 4px;">${cp.what}</div>` : ''}
-                </div>
-              </div>`;
+            <tr>
+              <td style="border: 1px solid #ccc; padding: 3px 6px;">${cp.label}</td>
+              <td style="border: 1px solid #ccc; padding: 3px 6px;">${assignedLabel}</td>
+              <td style="border: 1px solid #ccc; padding: 3px 6px; text-align: center; font-weight: 600; color: ${done ? '#006747' : '#b91c1c'};">${done ? 'Complete' : 'Pending'}</td>
+              <td style="border: 1px solid #ccc; padding: 3px 6px;">${done && cp.completedAt ? new Date(cp.completedAt).toLocaleDateString() : '—'}</td>
+            </tr>`;
             }).join('')}
-          </div>`;
+          </table>`;
         }).join('')}
       </div>
 
       <!-- DECISION AUDIT LOG -->
-      <div style="padding: 10px 36px 20px;">
-        <div style="font-size: 16px; font-weight: 700; color: #006747; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #006747; padding-bottom: 6px;">
-          Decision Audit Trail
-        </div>
-        <div style="font-size: 12px; color: #64748b; margin-bottom: 14px;">
-          Every time a team member documents what they did for a compliance step, it appears here with a timestamp — creating a permanent record.
-        </div>
+      <div style="margin-bottom: 16px;">
+        <div style="font-family: Arial, sans-serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #006747; margin-bottom: 6px;">3. Decision Audit Trail</div>
         ${decisions.length === 0
-          ? `<div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; font-size: 13px; color: #94a3b8; text-align: center;">No decisions have been logged yet. Log decisions inside the project to build your audit trail.</div>`
-          : decisions.map((d, i) => {
-            const cpLabel = project.checkpoints.find(c => c.id === d.checkpoint)?.label || 'General';
-            return `
-            <div style="border-left: 3px solid #006747; padding: 10px 14px; margin-bottom: 10px; background: #f8fafc; border-radius: 0 6px 6px 0;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                <span style="font-size: 12px; font-weight: 700; color: #006747;">${cpLabel}</span>
-                <span style="font-size: 11px; color: #94a3b8;">${new Date(d.loggedAt).toLocaleDateString()} at ${new Date(d.loggedAt).toLocaleTimeString()}</span>
-              </div>
-              <div style="font-size: 13px; color: #334155;">${d.description}</div>
-              ${d.notes ? `<div style="font-size: 12px; color: #64748b; margin-top: 4px;">Note: ${d.notes}</div>` : ''}
-              ${d.proofValue ? `<div style="font-size: 11px; color: #64748b; margin-top: 3px;">Evidence: ${d.proofValue}</div>` : ''}
-            </div>`;
-          }).join('')
+          ? `<p style="font-size: 12px; color: #666; font-style: italic;">No decisions have been logged for this activity.</p>`
+          : `<table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+            <tr style="background: #f5f5f5;">
+              <th style="border: 1px solid #ccc; padding: 5px 8px; text-align: left; width: 15%;">Date</th>
+              <th style="border: 1px solid #ccc; padding: 5px 8px; text-align: left; width: 25%;">Checkpoint</th>
+              <th style="border: 1px solid #ccc; padding: 5px 8px; text-align: left; width: 40%;">Decision</th>
+              <th style="border: 1px solid #ccc; padding: 5px 8px; text-align: left; width: 20%;">Evidence</th>
+            </tr>
+            ${decisions.map(d => {
+              const cpLabel = project.checkpoints.find(c => c.id === d.checkpoint)?.label || 'General';
+              return `
+            <tr>
+              <td style="border: 1px solid #ccc; padding: 5px 8px;">${new Date(d.loggedAt).toLocaleDateString()}</td>
+              <td style="border: 1px solid #ccc; padding: 5px 8px;">${cpLabel}</td>
+              <td style="border: 1px solid #ccc; padding: 5px 8px;">${d.description}${d.notes ? '<br/><em style="color:#666;">Note: ' + d.notes + '</em>' : ''}</td>
+              <td style="border: 1px solid #ccc; padding: 5px 8px;">${d.proofValue || '—'}</td>
+            </tr>`;
+            }).join('')}
+          </table>`
         }
       </div>
 
-      <!-- ACTION ITEMS -->
+      <!-- OUTSTANDING ITEMS -->
       ${pendingCount > 0 ? `
-      <div style="padding: 10px 36px 20px;">
-        <div style="font-size: 16px; font-weight: 700; color: #dc2626; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #dc2626; padding-bottom: 6px;">
-          Action Required
-        </div>
-        <div style="font-size: 12px; color: #64748b; margin-bottom: 12px;">
-          These steps must be completed before this project is fully compliant.
-        </div>
-        ${project.checkpoints.filter(c => !c.completed).map((cp, i) => `
-          <div style="padding: 10px 14px; margin-bottom: 8px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px;">
-            <div style="font-size: 13px; font-weight: 600; color: #991b1b;">${i + 1}. ${cp.label}</div>
-            ${cp.how ? `<div style="font-size: 12px; color: #64748b; margin-top: 4px;"><strong>How:</strong> ${cp.how}</div>` : ''}
-          </div>
-        `).join('')}
+      <div style="margin-bottom: 16px; page-break-before: always;">
+        <div style="font-family: Arial, sans-serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #006747; margin-bottom: 6px;">4. Outstanding Items</div>
+        <p style="font-size: 11px; color: #333; margin-bottom: 6px;">The following ${pendingCount} step${pendingCount > 1 ? 's' : ''} must be completed before this activity is fully compliant:</p>
+        <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
+          <tr style="background: #f5f5f5;">
+            <th style="border: 1px solid #ccc; padding: 4px 6px; text-align: left; width: 5%;">#</th>
+            <th style="border: 1px solid #ccc; padding: 4px 6px; text-align: left; width: 28%;">Checkpoint</th>
+            <th style="border: 1px solid #ccc; padding: 4px 6px; text-align: left; width: 67%;">How to Complete</th>
+          </tr>
+          ${project.checkpoints.filter(c => !c.completed).map((cp, i) => `
+          <tr>
+            <td style="border: 1px solid #ccc; padding: 4px 6px;">${i + 1}</td>
+            <td style="border: 1px solid #ccc; padding: 4px 6px; font-weight: 600;">${cp.label}</td>
+            <td style="border: 1px solid #ccc; padding: 4px 6px;">${cp.how || '—'}</td>
+          </tr>`).join('')}
+        </table>
       </div>` : ''}
 
       <!-- FOOTER -->
-      <div style="background: #f1f5f9; padding: 20px 36px; margin-top: 10px; border-top: 1px solid #e2e8f0;">
-        <div style="font-size: 11px; color: #94a3b8; text-align: center; line-height: 1.7;">
-          Generated by <strong style="color: #64748b;">RAISE</strong> — Responsible AI Standards and Ethics<br/>
-          University of South Florida &nbsp;|&nbsp; ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}<br/>
+      <div style="border-top: 2px solid #006747; padding-top: 10px; margin-top: 16px; page-break-inside: avoid;">
+        <div style="font-family: Arial, sans-serif; font-size: 9px; color: #888; text-align: center; line-height: 1.6;">
+          RAISE &mdash; Responsible AI Standards &amp; Ethics<br/>
+          University of South Florida &nbsp;&bull;&nbsp; 4202 E. Fowler Avenue, Tampa, FL 33620<br/>
+          Report generated on ${now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}<br/>
           For compliance questions, contact your IRB office.
         </div>
       </div>
@@ -308,12 +307,12 @@ function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpda
     document.body.appendChild(container);
 
     html2pdf().set({
-      margin: 0,
+      margin: [0.5, 0.4, 0.6, 0.4],
       filename: `${project.name.replace(/\s+/g, '_')}_Compliance_Report.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true },
       jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+      pagebreak: { mode: ['css', 'legacy'] }
     }).from(container).save().then(() => {
       document.body.removeChild(container);
     });
@@ -389,90 +388,82 @@ function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpda
 
   const riskAssessment = getRiskAssessment();
 
+  const useCaseLabelsShort = {
+    'data_analysis': 'Data Analysis',
+    'qualitative': 'Qualitative Analysis',
+    'ml_model': 'ML / Model Development',
+    'literature': 'Literature Review',
+    'writing': 'Writing Assistance',
+    'grading': 'Grading & Assessment',
+    'teaching': 'Teaching Materials',
+    'admin': 'Administrative',
+    'other': 'Other',
+  };
+
   return (
     <div className="project-dashboard">
       {toast && <div className="toast-notification">{toast}</div>}
-      <header className="project-dashboard-header">
-        <div className="header-top-row">
-          <button className="back-btn" onClick={onBack}>&larr; Back to Activities</button>
-          <span className={`role-badge role-${role}`}>
-            {role === 'pi' ? 'Principal Investigator' :
-             role === 'student' ? 'Student Researcher' :
-             'Compliance Officer'}
-          </span>
-        </div>
-        <div className="header-main-row">
-          <div className="project-title-section">
-            <h1>{project.name}</h1>
-            <p className="project-meta">
-              Created {new Date(project.createdAt).toLocaleDateString()} &bull; {project.description || 'No description'}
-            </p>
-          </div>
-          <button className="btn-primary" onClick={generateReport}>
-            Export Report
-          </button>
-        </div>
-      </header>
 
-      {/* Progress Overview */}
-      <div className="progress-overview">
-        <div className="progress-circle">
-          <svg viewBox="0 0 100 100">
-            <circle className="progress-bg" cx="50" cy="50" r="45" />
-            <circle
-              className="progress-fill"
-              cx="50"
-              cy="50"
-              r="45"
-              strokeDasharray={`${completion * 2.83} 283`}
-            />
-          </svg>
-          <div className="progress-text">
-            <span className="progress-number">{completion}%</span>
-            <span className="progress-label">{role === 'compliance' ? 'Complete' : 'Your Tasks'}</span>
-          </div>
-        </div>
-        <div className="progress-stats">
-          <div className="stat">
-            <span className="stat-value">{myCheckpoints.filter(c => c.completed).length}</span>
-            <span className="stat-label">{role === 'compliance' ? 'Documented' : 'Your Tasks Done'}</span>
-          </div>
-          <div className="stat">
-            <span className="stat-value">{myCheckpoints.length}</span>
-            <span className="stat-label">{role === 'compliance' ? 'Total Items' : 'Your Total Tasks'}</span>
-          </div>
-          <div className="stat">
-            <span className="stat-value">{project.decisions?.length || 0}</span>
-            <span className="stat-label">Decisions Logged</span>
-          </div>
-          {role !== 'compliance' && (
-            <div className="stat overall-stat">
-              <span className="stat-value">{getCompletionPercentage()}%</span>
-              <span className="stat-label">Overall Activity</span>
+      {/* USF Top Bar */}
+      <div className="pl-topbar">
+        <div className="pl-topbar-inner">
+          <div className="pl-topbar-brand">
+            <img src="/usf-logo.svg" alt="USF" className="pl-topbar-logo" />
+            <div className="pl-topbar-text">
+              <span className="pl-topbar-uni">University of South Florida</span>
+              <span className="pl-topbar-app">RAISE Ethics Toolkit</span>
             </div>
-          )}
-        </div>
-        <div className={`risk-assessment risk-${riskAssessment.overallRisk}`}>
-          <div className="risk-header">
-            <span className="risk-level">
-              {riskAssessment.overallRisk === 'high' ? 'High Risk' :
-               riskAssessment.overallRisk === 'medium' ? 'Medium Risk' :
-               'Low Risk'}
-            </span>
           </div>
-          {riskAssessment.risks.length > 0 ? (
-            <ul className="risk-items">
-              {riskAssessment.risks.map((risk, idx) => (
-                <li key={idx} className={`risk-item risk-${risk.level}`}>
-                  {risk.message}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="risk-clear">All critical items addressed</p>
-          )}
+          <div className="pl-topbar-right">
+            <UserMenu user={user} role={role} onLogout={onLogout} />
+          </div>
         </div>
       </div>
+
+      {/* Navigation */}
+      <div className="pl-nav">
+        <div className="pl-nav-inner">
+          <button className="pl-nav-tab" onClick={onBack}>My Activities</button>
+          <button className="pl-nav-tab" onClick={onViewToolRegistry}>Tool Library</button>
+          <button className="pl-nav-tab" onClick={onViewDashboard}>Compliance Overview</button>
+        </div>
+      </div>
+
+      <div className="pd-content">
+        <header className="pd-header">
+          <div className="pd-header-left">
+            <h1 className="pd-title">{project.name} <button className="edit-name-btn" onClick={() => setShowEditModal(true)} title="Edit">&#9998;</button></h1>
+            <div className="pd-meta">
+              <span>{useCaseLabelsShort[project.aiUseCase] || project.aiUseCase}</span>
+              <span className="pd-meta-sep">&middot;</span>
+              <span>Started {new Date(project.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+            </div>
+            {project.description && (
+              <p className="pd-description">{project.description}</p>
+            )}
+          </div>
+          <button className="pd-export-btn" onClick={generateReport}>Export Report</button>
+        </header>
+
+        {/* Progress Summary */}
+        <div className="progress-overview">
+          <div className="progress-bar-section">
+            <div className="progress-bar-header">
+              <span className="progress-bar-label">
+                {myCheckpoints.filter(c => c.completed).length} of {myCheckpoints.length} steps complete
+              </span>
+              <span className="progress-bar-pct">{completion}%</span>
+            </div>
+            <div className="progress-bar-track">
+              <div className="progress-bar-fill-linear" style={{ width: `${completion}%` }}></div>
+            </div>
+          </div>
+          <div className={`risk-indicator risk-${riskAssessment.overallRisk}`}>
+            {riskAssessment.overallRisk === 'low' ? 'On Track' :
+             riskAssessment.overallRisk === 'medium' ? 'Needs Attention' :
+             'Action Required'}
+          </div>
+        </div>
 
       {/* Tabs */}
       <div className="dashboard-tabs">
@@ -493,51 +484,6 @@ function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpda
       {/* Checkpoints Tab */}
       {activeTab === 'checkpoints' && (
         <div className="checkpoints-section">
-          <div className="section-header">
-            <h2>Compliance Checkpoints</h2>
-          </div>
-
-          {role === 'compliance' ? (
-            <div className="checkpoints-explainer compliance-view">
-              <div className="explainer-content">
-                <strong>Audit View - Read Only</strong>
-                <p>Reviewing compliance status and documentation. Contact the PI to request changes.</p>
-              </div>
-              <div className="explainer-status">
-                <span className={`status-badge ${completion === 100 ? 'complete' : completion > 0 ? 'in-progress' : 'not-started'}`}>
-                  {completion}% Documented
-                </span>
-              </div>
-            </div>
-          ) : role === 'student' ? (
-            <div className="checkpoints-explainer student-view">
-              <div className="explainer-content">
-                <strong>Complete each checkpoint by documenting your work</strong>
-                <p>Click "Guide" on any checkpoint to learn what it means and how to complete it. Your PI will review your documentation.</p>
-              </div>
-              <div className="explainer-status">
-                <span className={`status-badge ${completion === 100 ? 'complete' : completion > 0 ? 'in-progress' : 'not-started'}`}>
-                  {completion === 100 ? 'All Complete' :
-                   completion > 0 ? `${myCheckpoints.filter(c => c.completed).length}/${myCheckpoints.length} Done` :
-                   'Not Started'}
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div className="checkpoints-explainer">
-              <div className="explainer-content">
-                <strong>Document each checkpoint to mark it complete</strong>
-                <p>Click "Document" to log decisions and create an audit trail for compliance records.</p>
-              </div>
-              <div className="explainer-status">
-                <span className={`status-badge ${completion === 100 ? 'complete' : completion > 0 ? 'in-progress' : 'not-started'}`}>
-                  {completion === 100 ? 'All Complete' :
-                   completion > 0 ? `${myCheckpoints.filter(c => c.completed).length}/${myCheckpoints.length} Done` :
-                   'Not Started'}
-                </span>
-              </div>
-            </div>
-          )}
 
           {categories.map(category => (
             <div key={category} className="checkpoint-category">
@@ -569,11 +515,11 @@ function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpda
                           )}
                           {checkpoint.completed ? (
                             <span className="checkpoint-date completed-date">
-                              Documented {new Date(checkpoint.completedAt).toLocaleDateString()}
+                              Completed {new Date(checkpoint.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                             </span>
                           ) : (
                             <span className="checkpoint-date pending-date">
-                              Requires documentation
+                              Pending
                             </span>
                           )}
                         </div>
@@ -602,9 +548,9 @@ function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpda
                               setNewDecision({ ...newDecision, checkpoint: checkpoint.id });
                               setShowLogModal(true);
                             }}
-                            title="Document this checkpoint"
+                            title="Log completion"
                           >
-                            Document
+                            Log
                           </button>
                         )}
                         {role !== 'compliance' && checkpoint.completed && (
@@ -615,17 +561,17 @@ function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpda
                                 setNewDecision({ ...newDecision, checkpoint: checkpoint.id });
                                 setShowLogModal(true);
                               }}
-                              title="Add another decision"
+                              title="Add note"
                             >
-                              + Add Note
+                              Add Note
                             </button>
                             <button
                               className="log-btn undo"
                               onClick={() => handleCheckpointToggle(checkpoint.id)}
                               disabled={saving}
-                              title="Mark as incomplete"
+                              title="Reopen"
                             >
-                              Undo
+                              Reopen
                             </button>
                           </>
                         )}
@@ -665,6 +611,7 @@ function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpda
                                     <div className="inline-decision-date">{new Date(d.loggedAt).toLocaleDateString()}</div>
                                     <div className="inline-decision-body">
                                       <div className="inline-decision-desc">{d.description}</div>
+                                      {d.toolUsed && <div className="inline-decision-tool">Tool: {d.toolUsed.name}</div>}
                                       {d.notes && <div className="inline-decision-notes">{d.notes}</div>}
                                       {d.proofValue && (
                                         <div className="inline-decision-proof">
@@ -739,6 +686,21 @@ function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpda
               />
             </div>
 
+            {availableTools.length > 0 && (
+              <div className="form-group">
+                <label>Tool used (optional)</label>
+                <select
+                  value={newDecision.toolUsedId}
+                  onChange={(e) => setNewDecision({ ...newDecision, toolUsedId: e.target.value })}
+                >
+                  <option value="">None</option>
+                  {availableTools.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="form-group">
               <label>Additional Notes (optional)</label>
               <textarea
@@ -803,6 +765,48 @@ function ProjectDashboard({ project: initialProject, role, onBack, onProjectUpda
           </div>
         </div>
       )}
+
+      {/* Edit Activity Modal */}
+      {showEditModal && (
+        <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Edit Activity</h2>
+            <div className="form-group">
+              <label>Activity Name</label>
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label>Description</label>
+              <textarea
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
+            <div className="modal-actions">
+              <button className="btn-secondary" onClick={() => setShowEditModal(false)}>Cancel</button>
+              <button className="btn-primary" onClick={async () => {
+                try {
+                  const updated = await updateProject(project.id, { name: editName.trim(), description: editDescription });
+                  setProject({ ...project, name: updated.name, description: updated.description });
+                  if (onProjectUpdated) onProjectUpdated({ ...project, name: updated.name, description: updated.description });
+                  setShowEditModal(false);
+                  showToast('Activity updated');
+                } catch (err) {
+                  console.error('Failed to update', err);
+                }
+              }} disabled={!editName.trim()}>
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </div>
     </div>
   );
 }
