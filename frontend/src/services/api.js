@@ -32,18 +32,25 @@ export async function fetchProjects() {
   return res.data;
 }
 
-export async function createProject(name, description, aiUseCase, aiToolIds = []) {
+export async function createProject(name, description, aiUseCase, aiToolIds = [], facultyAdvisorEmail = '', studentCollaboratorEmail = '') {
   const res = await api.post('/projects', {
     name,
     description,
     ai_use_case: aiUseCase,
     ai_tool_ids: aiToolIds,
+    faculty_advisor_email: facultyAdvisorEmail,
+    student_collaborator_email: studentCollaboratorEmail,
   });
   return res.data;
 }
 
 export async function fetchProject(projectId) {
   const res = await api.get(`/projects/${projectId}`);
+  return res.data;
+}
+
+export async function updateProject(projectId, data) {
+  const res = await api.put(`/projects/${projectId}`, data);
   return res.data;
 }
 
@@ -79,6 +86,11 @@ export async function updateTool(toolId, data) {
   return res.data;
 }
 
+export async function fetchToolDetail(toolId) {
+  const res = await api.get(`/tools/${toolId}/detail`);
+  return res.data;
+}
+
 // Checkpoint Comments
 export async function fetchCheckpointComments(projectId, checkpointId) {
   const res = await api.get(`/projects/${projectId}/checkpoints/${checkpointId}/comments`);
@@ -87,6 +99,22 @@ export async function fetchCheckpointComments(projectId, checkpointId) {
 
 export async function postCheckpointComment(projectId, checkpointId, text) {
   const res = await api.post(`/projects/${projectId}/checkpoints/${checkpointId}/comments`, { text });
+  return res.data;
+}
+
+// Verification (automated checkpoint checks)
+export async function scanFileForPII(file, scanType = 'pii') {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('scan_type', scanType);
+  const res = await api.post('/verify/scan-pii', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+  return res.data;
+}
+
+export async function classifyData(description) {
+  const res = await api.post('/verify/classify-data', { description });
   return res.data;
 }
 

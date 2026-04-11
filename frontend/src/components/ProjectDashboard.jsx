@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import html2pdf from 'html2pdf.js';
-import { toggleCheckpoint, logDecision, fetchProject, updateProject, fetchTools } from '../services/api';
+import { toggleCheckpoint, logDecision, fetchProject, updateProject, fetchTools, scanFileForPII, classifyData } from '../services/api';
 import EthicsAssistant from './EthicsAssistant';
 import Assessment from './Assessment';
 import CheckpointComments from './CheckpointComments';
@@ -15,6 +15,42 @@ function ProjectDashboard({ project: initialProject, user, role, onBack, onLogou
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState('');
   const [ethicsReviewPhase, setEthicsReviewPhase] = useState('assistant');
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [scanResult, setScanResult] = useState(null);
+  const [scanning, setScanning] = useState(false);
+  const [showScanModal, setShowScanModal] = useState(null);
+  const [classifyText, setClassifyText] = useState('');
+  const [classifyResult, setClassifyResult] = useState(null);
+
+  const SCANNABLE_CHECKPOINTS = ['data_deidentified', 'ferpa_compliance', 'data_classification'];
+
+  async function handleFileScan(file, checkpointId) {
+    setScanning(true);
+    setScanResult(null);
+    try {
+      const scanType = checkpointId === 'ferpa_compliance' ? 'ferpa' : 'pii';
+      const result = await scanFileForPII(file, scanType);
+      setScanResult(result);
+    } catch (err) {
+      setScanResult({ error: 'Scan failed. Please try again.' });
+    } finally {
+      setScanning(false);
+    }
+  }
+
+  async function handleClassify() {
+    if (!classifyText.trim()) return;
+    setScanning(true);
+    setClassifyResult(null);
+    try {
+      const result = await classifyData(classifyText);
+      setClassifyResult(result);
+    } catch (err) {
+      setClassifyResult({ error: 'Classification failed.' });
+    } finally {
+      setScanning(false);
+    }
+  }
   const [showEditModal, setShowEditModal] = useState(false);
   const [editName, setEditName] = useState(project.name);
   const [editDescription, setEditDescription] = useState(project.description || '');
@@ -139,10 +175,18 @@ function ProjectDashboard({ project: initialProject, user, role, onBack, onLogou
   }
 
 
-  function generateReport() {
-    const completedCount = project.checkpoints.filter(c => c.completed).length;
-    const totalCount = project.checkpoints.length;
+  function generateReport(scope = 'full') {
+    const roleFilter = scope === 'mine' ? role : null;
+    const reportCheckpoints = roleFilter
+      ? project.checkpoints.filter(c => c.assignedTo === roleFilter)
+      : project.checkpoints;
+    const completedCount = reportCheckpoints.filter(c => c.completed).length;
+    const totalCount = reportCheckpoints.length;
     const pendingCount = totalCount - completedCount;
+    const reportTitle = scope === 'mine' ? 'My Checkpoints Report' : 'Ethics Compliance Report';
+    const reportSubtitle = scope === 'mine'
+      ? `Showing checkpoints assigned to ${role === 'pi' ? 'Faculty / PI' : 'Student'}`
+      : 'Full activity report — all checkpoints across all roles';
     const pct = getCompletionPercentage();
     const risk = getRiskAssessment();
     const decisions = project.decisions || [];
@@ -171,7 +215,7 @@ function ProjectDashboard({ project: initialProject, user, role, onBack, onLogou
       : `This project is ${pct}% compliant. ${pendingCount} item${pendingCount > 1 ? 's' : ''} still need${pendingCount === 1 ? 's' : ''} attention.`;
 
     const riskLabel = risk.overallRisk.charAt(0).toUpperCase() + risk.overallRisk.slice(1);
-    const categories = [...new Set(project.checkpoints.map(c => c.category))];
+    const categories = [...new Set(reportCheckpoints.map(c => c.category))];
     const now = new Date();
 
     const html = `
@@ -192,8 +236,9 @@ function ProjectDashboard({ project: initialProject, user, role, onBack, onLogou
 
       <!-- TITLE -->
       <div style="text-align: center; margin-bottom: 10px;">
-        <div style="font-size: 17px; font-weight: 700; color: #1a1a1a; margin-bottom: 2px;">Ethics Compliance Report</div>
+        <div style="font-size: 17px; font-weight: 700; color: #1a1a1a; margin-bottom: 2px;">${reportTitle}</div>
         <div style="font-size: 11px; color: #555;">Generated ${now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+        <div style="font-size: 10px; color: #888; margin-top: 3px; font-style: italic;">${reportSubtitle}</div>
       </div>
 
       <!-- ABOUT THIS REPORT -->
@@ -209,7 +254,7 @@ function ProjectDashboard({ project: initialProject, user, role, onBack, onLogou
           <tr><td style="border: 1px solid #ccc; padding: 6px 10px; background: #f5f5f5; font-weight: 600;">Use Case</td><td style="border: 1px solid #ccc; padding: 6px 10px;">${useCaseLabels[project.aiUseCase] || 'Not specified'}</td></tr>
           <tr><td style="border: 1px solid #ccc; padding: 6px 10px; background: #f5f5f5; font-weight: 600;">Description</td><td style="border: 1px solid #ccc; padding: 6px 10px;">${project.description || 'None provided'}</td></tr>
           <tr><td style="border: 1px solid #ccc; padding: 6px 10px; background: #f5f5f5; font-weight: 600;">Date Created</td><td style="border: 1px solid #ccc; padding: 6px 10px;">${new Date(project.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</td></tr>
-          <tr><td style="border: 1px solid #ccc; padding: 6px 10px; background: #f5f5f5; font-weight: 600;">Compliance Status</td><td style="border: 1px solid #ccc; padding: 6px 10px;">${pct}% complete (${completedCount} of ${totalCount} steps)</td></tr>
+          <tr><td style="border: 1px solid #ccc; padding: 6px 10px; background: #f5f5f5; font-weight: 600;">Compliance Status</td><td style="border: 1px solid #ccc; padding: 6px 10px;">${pct}% complete (${completedCount} of ${totalCount} steps)${scope === 'mine' ? ` — ${project.checkpoints.filter(c => c.completed).length}/${project.checkpoints.length} overall` : ''}</td></tr>
           <tr><td style="border: 1px solid #ccc; padding: 6px 10px; background: #f5f5f5; font-weight: 600;">Risk Level</td><td style="border: 1px solid #ccc; padding: 6px 10px; color: ${riskColors[risk.overallRisk]}; font-weight: 600;">${riskLabel}</td></tr>
           <tr><td style="border: 1px solid #ccc; padding: 6px 10px; background: #f5f5f5; font-weight: 600;">Decisions Logged</td><td style="border: 1px solid #ccc; padding: 6px 10px;">${decisions.length}</td></tr>
         </table>
@@ -219,7 +264,7 @@ function ProjectDashboard({ project: initialProject, user, role, onBack, onLogou
       <div style="margin-bottom: 16px;">
         <div style="font-family: Arial, sans-serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #006747; margin-bottom: 6px;">2. Compliance Checklist</div>
         ${categories.map(category => {
-          const catCps = project.checkpoints.filter(c => c.category === category);
+          const catCps = reportCheckpoints.filter(c => c.category === category);
           const catDone = catCps.filter(c => c.completed).length;
           return `
           <div style="font-size: 10px; font-weight: 700; color: #333; margin: 10px 0 3px; text-transform: uppercase;">${category} (${catDone}/${catCps.length})</div>
@@ -282,7 +327,7 @@ function ProjectDashboard({ project: initialProject, user, role, onBack, onLogou
             <th style="border: 1px solid #ccc; padding: 4px 6px; text-align: left; width: 28%;">Checkpoint</th>
             <th style="border: 1px solid #ccc; padding: 4px 6px; text-align: left; width: 67%;">How to Complete</th>
           </tr>
-          ${project.checkpoints.filter(c => !c.completed).map((cp, i) => `
+          ${reportCheckpoints.filter(c => !c.completed).map((cp, i) => `
           <tr>
             <td style="border: 1px solid #ccc; padding: 4px 6px;">${i + 1}</td>
             <td style="border: 1px solid #ccc; padding: 4px 6px; font-weight: 600;">${cp.label}</td>
@@ -432,7 +477,7 @@ function ProjectDashboard({ project: initialProject, user, role, onBack, onLogou
       <div className="pd-content">
         <header className="pd-header">
           <div className="pd-header-left">
-            <h1 className="pd-title">{project.name} <button className="edit-name-btn" onClick={() => setShowEditModal(true)} title="Edit">&#9998;</button></h1>
+            <h1 className="pd-title">{project.name} <button className="edit-name-btn" onClick={() => setShowEditModal(true)} title="Edit"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button></h1>
             <div className="pd-meta">
               <span>{useCaseLabelsShort[project.aiUseCase] || project.aiUseCase}</span>
               <span className="pd-meta-sep">&middot;</span>
@@ -442,7 +487,24 @@ function ProjectDashboard({ project: initialProject, user, role, onBack, onLogou
               <p className="pd-description">{project.description}</p>
             )}
           </div>
-          <button className="pd-export-btn" onClick={generateReport}>Export Report</button>
+          {(() => {
+            const roles = [...new Set(project.checkpoints?.map(c => c.assignedTo) || [])];
+            const hasMultipleRoles = roles.length > 1;
+            if (!hasMultipleRoles) {
+              return <button className="pd-export-btn" onClick={() => generateReport('full')}>Export Report</button>;
+            }
+            return (
+              <div className="export-dropdown-wrap">
+                <button className="pd-export-btn" onClick={() => setShowExportMenu(!showExportMenu)}>Export Report ▾</button>
+                {showExportMenu && (
+                  <div className="export-dropdown">
+                    <button onClick={() => { generateReport('mine'); setShowExportMenu(false); }}>My Checkpoints</button>
+                    <button onClick={() => { generateReport('full'); setShowExportMenu(false); }}>Full Activity Report</button>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </header>
 
         {/* Progress Summary */}
@@ -539,6 +601,15 @@ function ProjectDashboard({ project: initialProject, user, role, onBack, onLogou
                             title="Learn what this means"
                           >
                             {expandedCheckpoint === checkpoint.id ? 'Hide' : 'Guide'}
+                          </button>
+                        )}
+                        {role !== 'compliance' && SCANNABLE_CHECKPOINTS.includes(checkpoint.id) && !checkpoint.completed && (
+                          <button
+                            className="log-btn scan"
+                            onClick={() => { setShowScanModal(checkpoint.id); setScanResult(null); setClassifyResult(null); setClassifyText(''); }}
+                            title="Auto-verify this checkpoint"
+                          >
+                            Verify
                           </button>
                         )}
                         {role !== 'compliance' && !checkpoint.completed && (
@@ -762,6 +833,103 @@ function ProjectDashboard({ project: initialProject, user, role, onBack, onLogou
                 {saving ? 'Saving...' : 'Save Documentation'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Verification Scan Modal */}
+      {showScanModal && (
+        <div className="modal-overlay" onClick={() => setShowScanModal(null)}>
+          <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
+            {showScanModal === 'data_classification' ? (
+              <>
+                <h2>Data Classification Check</h2>
+                <p className="modal-subtitle">Describe your data and we will suggest a classification level.</p>
+                <div className="form-group">
+                  <label>Describe the data you are working with</label>
+                  <textarea
+                    value={classifyText}
+                    onChange={(e) => setClassifyText(e.target.value)}
+                    placeholder="e.g., Student enrollment records including names, majors, and GPA from Fall 2025..."
+                    rows={4}
+                  />
+                </div>
+                {classifyResult && !classifyResult.error && (
+                  <div className={`scan-result ${classifyResult.suggestedLevel === 'restricted' || classifyResult.suggestedLevel === 'confidential' ? 'scan-fail' : 'scan-pass'}`}>
+                    <div className="scan-verdict-label">Suggested Classification</div>
+                    <div className="scan-verdict-level">{classifyResult.suggestedLevel.toUpperCase()}</div>
+                    <p className="scan-verdict-text">{classifyResult.reasoning}</p>
+                  </div>
+                )}
+                {classifyResult?.error && (
+                  <div className="scan-result scan-fail"><p>{classifyResult.error}</p></div>
+                )}
+                <div className="modal-actions">
+                  <button className="btn-secondary" onClick={() => setShowScanModal(null)}>Close</button>
+                  <button className="btn-primary" onClick={handleClassify} disabled={!classifyText.trim() || scanning}>
+                    {scanning ? 'Analyzing...' : 'Analyze'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2>{showScanModal === 'ferpa_compliance' ? 'FERPA Compliance Check' : 'PII Detection Scan'}</h2>
+                <p className="modal-subtitle">
+                  {showScanModal === 'ferpa_compliance'
+                    ? 'Upload a CSV of your student data to check for FERPA-protected fields.'
+                    : 'Upload a CSV of your dataset to scan for personally identifiable information.'}
+                </p>
+                <div className="form-group">
+                  <label>Upload CSV file (max 10MB)</label>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) handleFileScan(file, showScanModal);
+                    }}
+                  />
+                </div>
+                {scanning && <div className="scan-loading">Scanning file for identifiable data...</div>}
+                {scanResult && !scanResult.error && (
+                  <div className={`scan-result ${scanResult.hasPII ? 'scan-fail' : 'scan-pass'}`}>
+                    <div className="scan-verdict-label">{scanResult.hasPII ? 'Issues Found' : 'No Issues Found'}</div>
+                    <p className="scan-verdict-text">{scanResult.verdict}</p>
+                    <div className="scan-stats">
+                      <span>{scanResult.totalColumns} columns scanned</span>
+                      <span>{scanResult.rowsScanned} rows checked</span>
+                      <span>{scanResult.flaggedColumns} column{scanResult.flaggedColumns !== 1 ? 's' : ''} flagged</span>
+                    </div>
+                    {scanResult.findings.length > 0 && (
+                      <div className="scan-findings">
+                        <div className="scan-findings-label">Findings:</div>
+                        {scanResult.findings.map((f, i) => (
+                          <div key={i} className={`scan-finding ${f.severity}`}>
+                            <span className="finding-type">{f.type.replace(/_/g, ' ')}</span>
+                            <span className="finding-msg">{f.message}</span>
+                            {f.sample && <span className="finding-sample">Sample: {f.sample}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {showScanModal === 'ferpa_compliance' && scanResult.ferpaSpecific && (
+                      <div className="scan-ferpa-extra">
+                        <div className="scan-verdict-label" style={{marginTop: '12px'}}>
+                          {scanResult.ferpaSpecific.hasFerpaData ? 'FERPA-Protected Data Detected' : 'No FERPA-Specific Fields Found'}
+                        </div>
+                        <p className="scan-verdict-text">{scanResult.ferpaSpecific.verdict}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {scanResult?.error && (
+                  <div className="scan-result scan-fail"><p>{scanResult.error}</p></div>
+                )}
+                <div className="modal-actions">
+                  <button className="btn-secondary" onClick={() => setShowScanModal(null)}>Close</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

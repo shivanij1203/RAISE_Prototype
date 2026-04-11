@@ -1,15 +1,20 @@
 import { useState, useEffect } from 'react';
-import { fetchProjects, createProject, fetchTools } from '../services/api';
+import { fetchProjects, createProject, fetchTools, updateProject } from '../services/api';
+import UserMenu from './UserMenu';
 
-function ProjectList({ role, onSelectProject, onLogout, onViewDashboard, onViewToolRegistry }) {
+function ProjectList({ user, role, onSelectProject, onLogout, onViewDashboard, onViewToolRegistry }) {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newProject, setNewProject] = useState({ name: '', description: '', aiUseCase: '', aiToolIds: [] });
+  const [newProject, setNewProject] = useState({ name: '', description: '', aiUseCase: '', aiToolIds: [], facultyEmail: '', studentEmail: '' });
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
   const [availableTools, setAvailableTools] = useState([]);
+  const [editingProject, setEditingProject] = useState(null);
+  const [editFacultyEmail, setEditFacultyEmail] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState('');
 
   useEffect(() => {
     loadProjects();
@@ -43,10 +48,12 @@ function ProjectList({ role, onSelectProject, onLogout, onViewDashboard, onViewT
         newProject.name,
         newProject.description,
         newProject.aiUseCase,
-        newProject.aiToolIds
+        newProject.aiToolIds,
+        newProject.facultyEmail,
+        newProject.studentEmail
       );
       setProjects([project, ...projects]);
-      setNewProject({ name: '', description: '', aiUseCase: '', aiToolIds: [] });
+      setNewProject({ name: '', description: '', aiUseCase: '', aiToolIds: [], facultyEmail: '', studentEmail: '' });
       setShowCreateModal(false);
       onSelectProject(project);
     } catch (err) {
@@ -64,9 +71,9 @@ function ProjectList({ role, onSelectProject, onLogout, onViewDashboard, onViewT
   }
 
   function getStatusColor(percentage) {
-    if (percentage === 100) return '#22c55e';
-    if (percentage >= 50) return '#f59e0b';
-    return '#94a3b8';
+    if (percentage === 100) return '#006747';
+    if (percentage >= 50) return '#006747';
+    return '#006747';
   }
 
   const aiUseCases = [
@@ -126,12 +133,7 @@ function ProjectList({ role, onSelectProject, onLogout, onViewDashboard, onViewT
             </div>
           </div>
           <div className="pl-topbar-right">
-            <span className="pl-topbar-role">
-              {role === 'pi' ? 'Principal Investigator' :
-               role === 'student' ? 'Student Researcher' :
-               'Compliance Officer'}
-            </span>
-            <button className="pl-signout" onClick={onLogout}>Sign Out</button>
+            <UserMenu user={user} role={role} onLogout={onLogout} />
           </div>
         </div>
       </div>
@@ -140,8 +142,8 @@ function ProjectList({ role, onSelectProject, onLogout, onViewDashboard, onViewT
       <div className="pl-nav">
         <div className="pl-nav-inner">
           <button className="pl-nav-tab active">My Activities</button>
-          <button className="pl-nav-tab" onClick={onViewToolRegistry}>AI Tool Registry</button>
-          <button className="pl-nav-tab" onClick={onViewDashboard}>Dashboard</button>
+          <button className="pl-nav-tab" onClick={onViewToolRegistry}>Tool Library</button>
+          <button className="pl-nav-tab" onClick={onViewDashboard}>Compliance Overview</button>
         </div>
       </div>
 
@@ -183,10 +185,7 @@ function ProjectList({ role, onSelectProject, onLogout, onViewDashboard, onViewT
                     <div className="progress-bar-container">
                       <div
                         className="progress-bar-fill"
-                        style={{
-                          width: `${completion}%`,
-                          backgroundColor: getStatusColor(completion)
-                        }}
+                        style={{ width: `${completion}%` }}
                       />
                     </div>
                     <span className="progress-text">{completion}% complete</span>
@@ -196,6 +195,26 @@ function ProjectList({ role, onSelectProject, onLogout, onViewDashboard, onViewT
                     <span>{project.checkpoints?.filter(c => c.completed).length || 0}/{project.checkpoints?.length || 0} checkpoints</span>
                     <span>{project.decisions?.length || 0} decisions logged</span>
                   </div>
+                  {project.facultyAdvisor && (
+                    <div className="project-advisor-tag">
+                      Faculty: {project.facultyAdvisor.name}
+                    </div>
+                  )}
+                  {project.studentCollaborator && (
+                    <div className="project-advisor-tag">
+                      Student: {project.studentCollaborator.name}
+                    </div>
+                  )}
+                  {!project.facultyAdvisor && role === 'student' && project.ownerEmail === user?.email && (
+                    <button className="btn-link" onClick={(e) => { e.stopPropagation(); setEditingProject(project); setEditFacultyEmail(''); setEditError(''); }}>
+                      + Invite Faculty Advisor
+                    </button>
+                  )}
+                  {!project.studentCollaborator && role === 'pi' && project.ownerEmail === user?.email && (
+                    <button className="btn-link" onClick={(e) => { e.stopPropagation(); setEditingProject(project); setEditFacultyEmail(''); setEditError(''); }}>
+                      + Invite Student
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -251,9 +270,34 @@ function ProjectList({ role, onSelectProject, onLogout, onViewDashboard, onViewT
               <p className="form-hint">This determines which compliance checkpoints are relevant</p>
             </div>
 
+            {role === 'student' && (
+              <div className="form-group">
+                <label>Faculty Advisor Email (optional)</label>
+                <input
+                  type="email"
+                  value={newProject.facultyEmail}
+                  onChange={(e) => setNewProject({ ...newProject, facultyEmail: e.target.value })}
+                  placeholder="e.g., advisor@usf.edu"
+                />
+                <p className="form-hint">Your faculty advisor will be able to see this activity and complete their assigned checkpoints</p>
+              </div>
+            )}
+            {role === 'pi' && (
+              <div className="form-group">
+                <label>Student Collaborator Email (optional)</label>
+                <input
+                  type="email"
+                  value={newProject.studentEmail}
+                  onChange={(e) => setNewProject({ ...newProject, studentEmail: e.target.value })}
+                  placeholder="e.g., student@usf.edu"
+                />
+                <p className="form-hint">The student will be able to see this activity and complete checkpoints assigned to them</p>
+              </div>
+            )}
+
             {availableTools.length > 0 && (
               <div className="form-group">
-                <label>AI Tools Used (optional)</label>
+                <label>Tools Used (optional)</label>
                 <div className="tool-multiselect">
                   {availableTools.filter(t => t.status !== 'not_recommended').map(tool => (
                     <label key={tool.id} className="tool-option">
@@ -268,13 +312,10 @@ function ProjectList({ role, onSelectProject, onLogout, onViewDashboard, onViewT
                         }}
                       />
                       <span className="tool-option-name">{tool.name}</span>
-                      <span className={`tool-option-status ${tool.status === 'approved' ? 'status-approved' : 'status-review'}`}>
-                        {tool.statusDisplay}
-                      </span>
                     </label>
                   ))}
                 </div>
-                <p className="form-hint">Select AI tools from the institutional registry</p>
+                <p className="form-hint">Select tools from the institutional registry</p>
               </div>
             )}
 
@@ -290,6 +331,57 @@ function ProjectList({ role, onSelectProject, onLogout, onViewDashboard, onViewT
                 disabled={!newProject.name.trim() || !newProject.aiUseCase || creating}
               >
                 {creating ? 'Creating...' : 'Create Activity'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invite Collaborator Modal */}
+      {editingProject && (
+        <div className="modal-overlay" onClick={() => setEditingProject(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>{role === 'pi' ? 'Invite Student' : 'Invite Faculty Advisor'}</h2>
+            <p className="modal-subtitle">{editingProject.name}</p>
+
+            <div className="form-group">
+              <label>{role === 'pi' ? 'Student Email' : 'Faculty Advisor Email'}</label>
+              <input
+                type="email"
+                value={editFacultyEmail}
+                onChange={(e) => setEditFacultyEmail(e.target.value)}
+                placeholder={role === 'pi' ? 'e.g., student@usf.edu' : 'e.g., advisor@usf.edu'}
+              />
+              <p className="form-hint">
+                {role === 'pi'
+                  ? 'The student will see this activity and complete checkpoints assigned to them'
+                  : 'They will see this activity and complete checkpoints assigned to faculty'}
+              </p>
+            </div>
+
+            {editError && <p className="error-text">{editError}</p>}
+
+            <div className="modal-actions">
+              <button className="btn-secondary" onClick={() => setEditingProject(null)}>Cancel</button>
+              <button
+                className="btn-primary"
+                disabled={!editFacultyEmail.trim() || editSaving}
+                onClick={async () => {
+                  setEditSaving(true);
+                  setEditError('');
+                  try {
+                    const field = role === 'pi' ? 'student_collaborator_email' : 'faculty_advisor_email';
+                    const updated = await updateProject(editingProject.id, { [field]: editFacultyEmail.trim() });
+                    setProjects(projects.map(p => p.id === updated.id ? updated : p));
+                    setEditingProject(null);
+                  } catch (err) {
+                    setEditError(err.response?.data?.error || 'Could not send invite.');
+                  } finally {
+                    setEditSaving(false);
+                  }
+                }}
+              >
+                {editSaving ? 'Saving...' : 'Invite'}
               </button>
             </div>
           </div>
