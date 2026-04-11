@@ -23,10 +23,10 @@ def dashboard_stats(request: Request) -> Response:
     # Students see own + where they're involved. Faculty can toggle scope.
     if profile.role == 'student' or scope == 'mine':
         projects_qs = Project.objects.filter(
-            Q(user=request.user) | Q(faculty_advisor=request.user)
+            Q(user=request.user) | Q(faculty_advisor=request.user) | Q(student_collaborator=request.user)
         ).distinct()
         decisions_qs = Decision.objects.filter(
-            Q(project__user=request.user) | Q(project__faculty_advisor=request.user)
+            Q(project__user=request.user) | Q(project__faculty_advisor=request.user) | Q(project__student_collaborator=request.user)
         ).distinct()
     else:
         projects_qs = Project.objects.all()

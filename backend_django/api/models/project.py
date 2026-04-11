@@ -10,6 +10,11 @@ class Project(models.Model):
         related_name='advised_projects',
         help_text='Faculty advisor who shares access to this activity'
     )
+    student_collaborator = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='collaborated_projects',
+        help_text='Student who shares access to this activity'
+    )
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     ai_use_case = models.CharField(max_length=50)

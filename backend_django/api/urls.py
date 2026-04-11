@@ -10,6 +10,7 @@ from .views.templates import template_list, template_detail, document_generate
 from .views.assessment import assessment_questions, assessment_submit
 from .views.research import submit_consent, start_session, record_response, complete_session
 from .views.export import project_export
+from .views.verification import scan_file_for_pii, classify_data
 
 urlpatterns = [
     # Auth endpoints
@@ -60,6 +61,10 @@ urlpatterns = [
     path('ethics/templates', template_list, name='template-list-alias'),
     path('ethics/templates/<str:template_key>', template_detail, name='template-detail-alias'),
     path('ethics/generate', document_generate, name='document-generate-alias'),
+
+    # Verification endpoints (automated checkpoint checks)
+    path('verify/scan-pii', scan_file_for_pii, name='scan-pii'),
+    path('verify/classify-data', classify_data, name='classify-data'),
 
     # Assessment endpoints
     path('assessment/questions', assessment_questions, name='assessment-questions'),

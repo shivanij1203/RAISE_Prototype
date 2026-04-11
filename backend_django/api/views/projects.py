@@ -14,15 +14,15 @@ from api.services.checkpoint_generator import generate_checkpoints_for_use_case
 
 
 def get_user_projects(user):
-    """Get projects owned by user OR where user is faculty advisor."""
+    """Get projects owned by user OR where user is faculty advisor or student collaborator."""
     return Project.objects.filter(
-        Q(user=user) | Q(faculty_advisor=user)
+        Q(user=user) | Q(faculty_advisor=user) | Q(student_collaborator=user)
     ).distinct().order_by('-created_at')
 
 
 def user_can_access_project(user, project):
-    """Check if user owns or advises this project."""
-    return project.user == user or project.faculty_advisor == user
+    """Check if user owns, advises, or collaborates on this project."""
+    return project.user == user or project.faculty_advisor == user or project.student_collaborator == user
 
 
 def serialize_project(project: Project) -> dict[str, Any]:
@@ -74,6 +74,10 @@ def serialize_project(project: Project) -> dict[str, Any]:
             'name': project.faculty_advisor.first_name or project.faculty_advisor.email,
             'email': project.faculty_advisor.email,
         } if project.faculty_advisor else None,
+        'studentCollaborator': {
+            'name': project.student_collaborator.first_name or project.student_collaborator.email,
+            'email': project.student_collaborator.email,
+        } if project.student_collaborator else None,
         'checkpoints': checkpoints,
         'decisions': decisions,
         'aiTools': [
@@ -107,7 +111,16 @@ def project_list_create(request: Request) -> Response:
         try:
             faculty_advisor = User.objects.get(email=advisor_email)
         except User.DoesNotExist:
-            pass  # Silently skip if not found — they can invite later
+            pass
+
+    # Look up student collaborator by email if provided
+    student_collab = None
+    student_email = request.data.get('student_collaborator_email', '').strip().lower()
+    if student_email:
+        try:
+            student_collab = User.objects.get(email=student_email)
+        except User.DoesNotExist:
+            pass
 
     project = Project.objects.create(
         user=request.user,
@@ -115,6 +128,7 @@ def project_list_create(request: Request) -> Response:
         description=request.data.get('description', ''),
         ai_use_case=ai_use_case,
         faculty_advisor=faculty_advisor,
+        student_collaborator=student_collab,
     )
 
     # Generate checkpoints
@@ -163,6 +177,17 @@ def project_detail(request: Request, project_id: int) -> Response:
                 return Response({"error": f"No account found for {faculty_email}"}, status=status.HTTP_400_BAD_REQUEST)
         elif faculty_email == '' and 'faculty_advisor_email' in request.data:
             project.faculty_advisor = None
+
+        # Owner can set/change student collaborator
+        student_email = request.data.get('student_collaborator_email', '').strip().lower()
+        if student_email and project.user == request.user:
+            try:
+                student = User.objects.get(email=student_email)
+                project.student_collaborator = student
+            except User.DoesNotExist:
+                return Response({"error": f"No account found for {student_email}"}, status=status.HTTP_400_BAD_REQUEST)
+        elif student_email == '' and 'student_collaborator_email' in request.data:
+            project.student_collaborator = None
 
         project.save()
         return Response(serialize_project(project))
