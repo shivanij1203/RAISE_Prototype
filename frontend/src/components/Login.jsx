@@ -37,76 +37,95 @@ function Login({ onLogin, onBack }) {
   }
 
   return (
-    <div className="login-container">
-      <div className="login-card">
-        {onBack && (
-          <button className="btn-back-landing" onClick={onBack}>← Back</button>
-        )}
-        <div className="login-logo">
-          <span className="logo-badge">RAISE</span>
+    <div className="login-page">
+      {/* Green header */}
+      <header className="lp-header">
+        <div className="lp-header-inner">
+          <div className="lp-header-brand">
+            <img src="/usf-logo.svg" alt="USF" className="lp-header-logo" />
+            <div className="lp-header-text">
+              <span className="lp-header-uni">University of South Florida</span>
+              <span className="lp-header-app">RAISE Ethics Toolkit</span>
+            </div>
+          </div>
+          {onBack && (
+            <button className="lp-signin-btn" onClick={onBack}>Back to Home</button>
+          )}
         </div>
-        <h1>{isRegister ? 'Create Account' : 'Sign In'}</h1>
-        <p>RAISE Ethics Toolkit — {isRegister ? 'USF email required' : 'Welcome back'}</p>
+      </header>
+      <div className="lp-accent-bar"></div>
 
-        <form onSubmit={handleSubmit}>
-          {isRegister && (
+      {/* Login form */}
+      <div className="login-body">
+        <div className="login-form-card">
+          <h1 className="login-heading">{isRegister ? 'Create Account' : 'Sign In'}</h1>
+          <p className="login-subtext">
+            {isRegister
+              ? 'Register with your USF email address to get started.'
+              : 'Sign in with your USF account to continue.'}
+          </p>
+
+          <form onSubmit={handleSubmit}>
+            {isRegister && (
+              <div className="form-group">
+                <label>Full Name</label>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={e => setFullName(e.target.value)}
+                  placeholder="Your full name"
+                  required
+                />
+              </div>
+            )}
+
             <div className="form-group">
-              <label>Full Name</label>
+              <label>Email</label>
               <input
-                type="text"
-                value={fullName}
-                onChange={e => setFullName(e.target.value)}
-                placeholder="Your name"
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="you@usf.edu"
                 required
               />
             </div>
-          )}
 
-          <div className="form-group">
-            <label>Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="you@university.edu"
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="At least 8 characters"
-              required
-            />
-          </div>
-
-          {isRegister && (
             <div className="form-group">
-              <label>Role</label>
-              <select value={role} onChange={e => setRole(e.target.value)}>
-                <option value="faculty">Faculty / PI</option>
-                <option value="student">Student</option>
-              </select>
+              <label>Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="At least 8 characters"
+                required
+              />
             </div>
-          )}
 
-          {error && <p className="error-text">{error}</p>}
+            {isRegister && (
+              <div className="form-group">
+                <label>Role</label>
+                <select value={role} onChange={e => setRole(e.target.value)}>
+                  <option value="faculty">Faculty / PI</option>
+                  <option value="student">Student</option>
+                </select>
+              </div>
+            )}
 
-          <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? 'Please wait...' : isRegister ? 'Create Account' : 'Sign In'}
-          </button>
-        </form>
+            {error && <p className="error-text">{error}</p>}
 
-        <p className="switch-text">
-          {isRegister ? 'Already have an account?' : "Don't have an account?"}
-          <button className="btn-text" onClick={() => { setIsRegister(!isRegister); setError(''); }}>
-            {isRegister ? 'Sign In' : 'Register'}
-          </button>
-        </p>
+            <button type="submit" className="btn-primary login-submit" disabled={loading}>
+              {loading ? 'Please wait...' : isRegister ? 'Create Account' : 'Sign In'}
+            </button>
+          </form>
+
+          <p className="login-switch">
+            {isRegister ? 'Already have an account?' : "Don't have an account?"}
+            {' '}
+            <button className="btn-text" onClick={() => { setIsRegister(!isRegister); setError(''); }}>
+              {isRegister ? 'Sign In' : 'Register'}
+            </button>
+          </p>
+        </div>
       </div>
     </div>
   );

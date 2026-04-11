@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { fetchDashboardStats } from '../services/api';
+import UserMenu from './UserMenu';
 
 const USE_CASE_LABELS = {
   'data_analysis': 'Data Analysis',
@@ -13,7 +14,7 @@ const USE_CASE_LABELS = {
   'other': 'Other',
 };
 
-function InstitutionalDashboard({ onBack }) {
+function InstitutionalDashboard({ user, role, onLogout, onBack, onViewToolRegistry }) {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -63,13 +64,16 @@ function InstitutionalDashboard({ onBack }) {
                 <span className="pl-topbar-app">RAISE Ethics Toolkit</span>
               </div>
             </div>
+            <div className="pl-topbar-right">
+              <UserMenu user={user} role={role} onLogout={onLogout} />
+            </div>
           </div>
         </div>
         <div className="pl-nav">
           <div className="pl-nav-inner">
             <button className="pl-nav-tab" onClick={onBack}>My Activities</button>
-            <button className="pl-nav-tab" onClick={onBack}>AI Tool Registry</button>
-            <button className="pl-nav-tab active">Dashboard</button>
+            <button className="pl-nav-tab" onClick={onViewToolRegistry}>Tool Library</button>
+            <button className="pl-nav-tab active">Compliance Overview</button>
           </div>
         </div>
       </>

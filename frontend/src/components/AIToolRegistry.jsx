@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { fetchTools, createTool, updateTool } from '../services/api';
+import { fetchTools, createTool, updateTool, fetchToolDetail } from '../services/api';
+import UserMenu from './UserMenu';
 
-const CATEGORIES = [
+const AI_CATEGORIES = [
   { value: 'chatbot', label: 'Chatbot' },
   { value: 'code_assistant', label: 'Code Assistant' },
   { value: 'grading', label: 'Grading' },
@@ -12,23 +13,32 @@ const CATEGORIES = [
   { value: 'other', label: 'Other' },
 ];
 
-const STATUS_OPTIONS = [
-  { value: 'approved', label: 'Approved' },
-  { value: 'under_review', label: 'Under Review' },
-  { value: 'not_recommended', label: 'Not Recommended' },
+const GENERAL_CATEGORIES = [
+  { value: 'survey', label: 'Survey & Forms' },
+  { value: 'statistics', label: 'Statistics' },
+  { value: 'qualitative', label: 'Qualitative Analysis' },
+  { value: 'reference', label: 'Reference Management' },
+  { value: 'collaboration', label: 'Collaboration' },
+  { value: 'lms', label: 'Learning Management' },
+  { value: 'visualization', label: 'Data Visualization' },
+  { value: 'other', label: 'Other' },
 ];
 
-function AIToolRegistry({ role, onBack }) {
+const ALL_CATEGORIES = [...AI_CATEGORIES, ...GENERAL_CATEGORIES.filter(g => !AI_CATEGORIES.find(a => a.value === g.value))];
+
+function AIToolRegistry({ user, role, onLogout, onBack, onViewDashboard }) {
   const [tools, setTools] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingTool, setEditingTool] = useState(null);
-  const [formData, setFormData] = useState({ name: '', description: '', vendor: '', category: '', status: 'under_review', risk_notes: '' });
+  const [formData, setFormData] = useState({ name: '', description: '', vendor: '', category: '', tool_type: 'ai', risk_notes: '', website_url: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [selectedTool, setSelectedTool] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const isFaculty = role === 'pi';
 
@@ -42,6 +52,18 @@ function AIToolRegistry({ role, onBack }) {
       console.error('Failed to load tools', err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function openToolDetail(toolId) {
+    setLoadingDetail(true);
+    try {
+      const data = await fetchToolDetail(toolId);
+      setSelectedTool(data);
+    } catch (err) {
+      console.error('Failed to load tool detail', err);
+    } finally {
+      setLoadingDetail(false);
     }
   }
 
@@ -59,7 +81,7 @@ function AIToolRegistry({ role, onBack }) {
       }
       setShowAddModal(false);
       setEditingTool(null);
-      setFormData({ name: '', description: '', vendor: '', category: '', status: 'under_review', risk_notes: '' });
+      setFormData({ name: '', description: '', vendor: '', category: '', tool_type: 'ai', risk_notes: '', website_url: '' });
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to save tool.');
     } finally {
@@ -74,20 +96,30 @@ function AIToolRegistry({ role, onBack }) {
       description: tool.description,
       vendor: tool.vendor,
       category: tool.category,
-      status: tool.status,
+      tool_type: tool.toolType || 'ai',
       risk_notes: tool.riskNotes || '',
+      website_url: tool.websiteUrl || '',
     });
+    setShowAddModal(true);
+  }
+
+  function openAddModal(type) {
+    setEditingTool(null);
+    setFormData({ name: '', description: '', vendor: '', category: '', tool_type: type, risk_notes: '', website_url: '' });
     setShowAddModal(true);
   }
 
   const filtered = tools.filter(t => {
     if (searchQuery && !t.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     if (categoryFilter && t.category !== categoryFilter) return false;
-    if (statusFilter && t.status !== statusFilter) return false;
+    if (typeFilter !== 'all' && t.toolType !== typeFilter) return false;
     return true;
   });
 
-  const statusColor = (s) => s === 'approved' ? 'status-approved' : s === 'not_recommended' ? 'status-not-rec' : 'status-review';
+  const aiTools = filtered.filter(t => t.toolType === 'ai');
+  const generalTools = filtered.filter(t => (t.toolType || 'ai') === 'general');
+
+  const currentCategories = formData.tool_type === 'ai' ? AI_CATEGORIES : GENERAL_CATEGORIES;
 
   if (loading) {
     return (
@@ -106,7 +138,7 @@ function AIToolRegistry({ role, onBack }) {
         <div className="pl-nav">
           <div className="pl-nav-inner">
             <button className="pl-nav-tab" onClick={onBack}>My Activities</button>
-            <button className="pl-nav-tab active">AI Tool Registry</button>
+            <button className="pl-nav-tab active">Tool Library</button>
           </div>
         </div>
         <div className="tool-registry-content">
@@ -137,10 +169,11 @@ function AIToolRegistry({ role, onBack }) {
           </div>
           <div className="pl-topbar-right">
             {isFaculty && (
-              <button className="pl-signout" onClick={() => { setEditingTool(null); setFormData({ name: '', description: '', vendor: '', category: '', status: 'under_review', risk_notes: '' }); setShowAddModal(true); }}>
+              <button className="pl-add-btn" onClick={() => openAddModal('ai')}>
                 + Add Tool
               </button>
             )}
+            <UserMenu user={user} role={role} onLogout={onLogout} />
           </div>
         </div>
       </div>
@@ -149,8 +182,8 @@ function AIToolRegistry({ role, onBack }) {
       <div className="pl-nav">
         <div className="pl-nav-inner">
           <button className="pl-nav-tab" onClick={onBack}>My Activities</button>
-          <button className="pl-nav-tab active">AI Tool Registry</button>
-          <button className="pl-nav-tab" onClick={onBack}>Dashboard</button>
+          <button className="pl-nav-tab active">Tool Library</button>
+          <button className="pl-nav-tab" onClick={onViewDashboard}>Compliance Overview</button>
         </div>
       </div>
 
@@ -158,63 +191,97 @@ function AIToolRegistry({ role, onBack }) {
       <div className="tool-registry-content">
         <div className="tool-registry-title-row">
           <div>
-            <h2 className="tool-registry-heading">AI Tool Registry</h2>
-            <p className="tool-subtitle">{tools.length} tool{tools.length !== 1 ? 's' : ''} registered across the institution</p>
+            <h2 className="tool-registry-heading">Tool Library</h2>
+            <p className="tool-subtitle">A reference library of AI and productivity tools commonly used in higher education. Each tool includes data handling details, compliance guidance by use case, and a record of how faculty and students have used it.</p>
           </div>
         </div>
 
         {/* Filters */}
         <div className="tool-filters">
-        <input
-          type="text"
-          placeholder="Search tools..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="tool-search"
-        />
-        <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-          <option value="">All Categories</option>
-          {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-        </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-          <option value="">All Statuses</option>
-          {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-        </select>
-      </div>
+          <input
+            type="text"
+            placeholder="Search tools..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="tool-search"
+          />
+          <div className="tool-type-toggle">
+            <button className={`type-btn ${typeFilter === 'all' ? 'active' : ''}`} onClick={() => setTypeFilter('all')}>All</button>
+            <button className={`type-btn ${typeFilter === 'ai' ? 'active' : ''}`} onClick={() => setTypeFilter('ai')}>AI Tools</button>
+            <button className={`type-btn ${typeFilter === 'general' ? 'active' : ''}`} onClick={() => setTypeFilter('general')}>Productivity & Research</button>
+          </div>
+        </div>
 
-      {/* Tool Grid */}
-      {filtered.length === 0 ? (
-        <div className="tool-empty">
-          {tools.length === 0
-            ? 'No tools registered yet. Faculty can add AI tools used at the institution.'
-            : 'No tools match your filters.'}
-        </div>
-      ) : (
-        <div className="tool-grid">
-          {filtered.map(tool => (
-            <div key={tool.id} className="tool-card">
-              <div className="tool-card-top">
-                <span className="tool-category-badge">{tool.categoryDisplay}</span>
-                <span className={`tool-status-pill ${statusColor(tool.status)}`}>{tool.statusDisplay}</span>
-              </div>
-              <h3 className="tool-name">{tool.name}</h3>
-              {tool.vendor && <div className="tool-vendor">by {tool.vendor}</div>}
-              {tool.description && <p className="tool-description">{tool.description}</p>}
-              {tool.riskNotes && (
-                <div className="tool-risk-note">
-                  <strong>Risk Notes:</strong> {tool.riskNotes}
+        {filtered.length === 0 ? (
+          <div className="tool-empty">
+            {tools.length === 0
+              ? 'No tools registered yet. Faculty can add tools used at the institution.'
+              : 'No tools match your filters.'}
+          </div>
+        ) : (
+          <>
+            {/* AI Tools Section */}
+            {aiTools.length > 0 && (typeFilter === 'all' || typeFilter === 'ai') && (
+              <div className="tool-section">
+                {typeFilter === 'all' && <h3 className="tool-section-heading">AI Tools</h3>}
+                <div className="tool-grid">
+                  {aiTools.map(tool => (
+                    <div key={tool.id} className="tool-card" onClick={() => openToolDetail(tool.id)}>
+                      <h3 className="tool-name">{tool.name}</h3>
+                      {tool.vendor && <div className="tool-vendor">{tool.vendor} &middot; {tool.categoryDisplay}</div>}
+                      {tool.description && <p className="tool-description">{tool.description}</p>}
+                      <div className="tool-data-flags">
+                        {tool.ferpaCompliant && <span className="data-flag good">FERPA Compliant</span>}
+                        {tool.hipaaCompliant && <span className="data-flag good">HIPAA Compliant</span>}
+                        {!tool.retainsData && <span className="data-flag good">No Data Retention</span>}
+                        {tool.retainsData && <span className="data-flag neutral">Data Retained</span>}
+                      </div>
+                      <div className="tool-card-footer">
+                        <span className="tool-view-details">View details &rarr;</span>
+                        {isFaculty && (
+                          <button className="btn-secondary btn-small" onClick={(e) => { e.stopPropagation(); openEdit(tool); }}>Edit</button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              )}
-              <div className="tool-card-footer">
-                <span className="tool-usage">{tool.projectCount} activit{tool.projectCount === 1 ? 'y' : 'ies'} using this</span>
-                {isFaculty && (
-                  <button className="btn-secondary btn-small" onClick={() => openEdit(tool)}>Edit</button>
-                )}
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            )}
+
+            {/* Productivity & Research Tools Section */}
+            {generalTools.length > 0 && (typeFilter === 'all' || typeFilter === 'general') && (
+              <div className="tool-section">
+                {typeFilter === 'all' && <h3 className="tool-section-heading">Productivity & Research Tools</h3>}
+                <div className="tool-grid">
+                  {generalTools.map(tool => (
+                    <div key={tool.id} className="tool-card tool-card-general" onClick={() => openToolDetail(tool.id)}>
+                      <h3 className="tool-name">{tool.name}</h3>
+                      {tool.vendor && <div className="tool-vendor">{tool.vendor} &middot; {tool.categoryDisplay}</div>}
+                      {tool.description && <p className="tool-description">{tool.description}</p>}
+                      {tool.websiteUrl && (
+                        <a
+                          className="tool-website-link"
+                          href={tool.websiteUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Visit website &rarr;
+                        </a>
+                      )}
+                      <div className="tool-card-footer">
+                        <span className="tool-view-details">View details &rarr;</span>
+                        {isFaculty && (
+                          <button className="btn-secondary btn-small" onClick={(e) => { e.stopPropagation(); openEdit(tool); }}>Edit</button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
 
       </div>
 
@@ -222,36 +289,54 @@ function AIToolRegistry({ role, onBack }) {
       {showAddModal && (
         <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>{editingTool ? 'Edit Tool' : 'Register New Tool'}</h2>
+            <h2>{editingTool ? 'Edit Tool' : 'Add New Tool'}</h2>
+
+            {!editingTool && (
+              <div className="form-group">
+                <label>Tool Type *</label>
+                <div className="tool-type-toggle compact">
+                  <button
+                    type="button"
+                    className={`type-btn ${formData.tool_type === 'ai' ? 'active' : ''}`}
+                    onClick={() => setFormData({ ...formData, tool_type: 'ai', category: '' })}
+                  >AI Tool</button>
+                  <button
+                    type="button"
+                    className={`type-btn ${formData.tool_type === 'general' ? 'active' : ''}`}
+                    onClick={() => setFormData({ ...formData, tool_type: 'general', category: '' })}
+                  >Productivity & Research</button>
+                </div>
+              </div>
+            )}
 
             <div className="form-group">
               <label>Tool Name *</label>
-              <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g., ChatGPT" />
+              <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g., ChatGPT, Qualtrics" />
             </div>
             <div className="form-group">
               <label>Vendor</label>
-              <input type="text" value={formData.vendor} onChange={(e) => setFormData({ ...formData, vendor: e.target.value })} placeholder="e.g., OpenAI" />
+              <input type="text" value={formData.vendor} onChange={(e) => setFormData({ ...formData, vendor: e.target.value })} placeholder="e.g., OpenAI, IBM" />
             </div>
             <div className="form-group">
               <label>Category *</label>
               <select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })}>
                 <option value="">Select category...</option>
-                {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                {currentCategories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             </div>
-            <div className="form-group">
-              <label>Status</label>
-              <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })}>
-                {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
-            </div>
+            {formData.tool_type === 'general' && (
+              <div className="form-group">
+                <label>Website URL</label>
+                <input type="url" value={formData.website_url} onChange={(e) => setFormData({ ...formData, website_url: e.target.value })} placeholder="https://..." />
+              </div>
+            )}
             <div className="form-group">
               <label>Description</label>
               <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="What does this tool do?" rows={2} />
             </div>
             <div className="form-group">
-              <label>Risk Notes</label>
-              <textarea value={formData.risk_notes} onChange={(e) => setFormData({ ...formData, risk_notes: e.target.value })} placeholder="Any data privacy or compliance concerns..." rows={2} />
+              <label>{formData.tool_type === 'ai' ? 'Risk Notes' : 'Notes'}</label>
+              <textarea value={formData.risk_notes} onChange={(e) => setFormData({ ...formData, risk_notes: e.target.value })} placeholder={formData.tool_type === 'ai' ? 'Any data privacy or compliance concerns...' : 'Any tips or notes about using this tool...'} rows={2} />
             </div>
 
             {error && <p className="error-text">{error}</p>}
@@ -259,8 +344,111 @@ function AIToolRegistry({ role, onBack }) {
             <div className="modal-actions">
               <button className="btn-secondary" onClick={() => setShowAddModal(false)}>Cancel</button>
               <button className="btn-primary" onClick={handleSave} disabled={!formData.name.trim() || !formData.category || saving}>
-                {saving ? 'Saving...' : editingTool ? 'Update Tool' : 'Register Tool'}
+                {saving ? 'Saving...' : editingTool ? 'Update Tool' : 'Add Tool'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tool Detail Modal */}
+      {selectedTool && (
+        <div className="modal-overlay" onClick={() => setSelectedTool(null)}>
+          <div className="modal modal-wide td-modal" onClick={(e) => e.stopPropagation()}>
+
+            {/* Header */}
+            <div className="td-header">
+              <h2 className="td-title">{selectedTool.name}</h2>
+              <p className="td-meta">
+                {selectedTool.vendor}
+                {selectedTool.categoryDisplay && <> &middot; {selectedTool.categoryDisplay}</>}
+                {selectedTool.websiteUrl && (
+                  <> &middot; <a href={selectedTool.websiteUrl} target="_blank" rel="noopener noreferrer">Website</a></>
+                )}
+              </p>
+            </div>
+
+            {selectedTool.description && <p className="td-desc">{selectedTool.description}</p>}
+
+            {/* Data & Privacy — simple table */}
+            <div className="td-section">
+              <h3 className="td-section-title">Data & Privacy</h3>
+              <table className="td-info-table">
+                <tbody>
+                  <tr>
+                    <td className="td-label">FERPA compliant</td>
+                    <td className="td-value">{selectedTool.ferpaCompliant ? 'Yes' : 'No'}</td>
+                  </tr>
+                  <tr>
+                    <td className="td-label">HIPAA compliant</td>
+                    <td className="td-value">{selectedTool.hipaaCompliant ? 'Yes' : 'No'}</td>
+                  </tr>
+                  <tr>
+                    <td className="td-label">Retains user data</td>
+                    <td className="td-value">{selectedTool.retainsData ? 'Yes' : 'No'}</td>
+                  </tr>
+                  <tr>
+                    <td className="td-label">Sends data to third parties</td>
+                    <td className="td-value">{selectedTool.sendsToThirdParty ? 'Yes' : 'No'}</td>
+                  </tr>
+                  <tr>
+                    <td className="td-label">Enterprise/institutional plan</td>
+                    <td className="td-value">{selectedTool.hasEnterprisePlan ? 'Available' : 'Not available'}</td>
+                  </tr>
+                </tbody>
+              </table>
+              {selectedTool.dataRetentionDetails && (
+                <p className="td-note">{selectedTool.dataRetentionDetails}</p>
+              )}
+              {selectedTool.riskNotes && (
+                <p className="td-note td-note-warn">{selectedTool.riskNotes}</p>
+              )}
+            </div>
+
+            {/* Usage Guidelines */}
+            {selectedTool.complianceGuidance && Object.keys(selectedTool.complianceGuidance).length > 0 && (
+              <div className="td-section">
+                <h3 className="td-section-title">Usage Guidelines</h3>
+                <dl className="td-guidelines">
+                  {Object.entries(selectedTool.complianceGuidance).map(([useCase, guidance]) => (
+                    <div key={useCase} className="td-guideline-row">
+                      <dt>{useCase.replace(/_/g, ' ')}</dt>
+                      <dd>{guidance}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            )}
+
+            {/* Institutional Usage */}
+            {selectedTool.activityHistory && selectedTool.activityHistory.length > 0 && (
+              <div className="td-section">
+                <h3 className="td-section-title">Institutional Usage ({selectedTool.activityHistory.length})</h3>
+                <table className="td-usage-table">
+                  <thead>
+                    <tr>
+                      <th>Activity</th>
+                      <th>Owner</th>
+                      <th>Use Case</th>
+                      <th>Progress</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedTool.activityHistory.map(a => (
+                      <tr key={a.id}>
+                        <td>{a.name}</td>
+                        <td>{a.owner}</td>
+                        <td>{a.aiUseCase.replace(/_/g, ' ')}</td>
+                        <td>{a.compliancePct}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="modal-actions">
+              <button className="btn-secondary" onClick={() => setSelectedTool(null)}>Close</button>
             </div>
           </div>
         </div>

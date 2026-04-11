@@ -69,26 +69,31 @@ function App() {
   }
 
   if (currentView === 'dashboard') {
-    return <InstitutionalDashboard onBack={() => setCurrentView('projects')} />;
+    return <InstitutionalDashboard user={currentUser} role={userRole} onLogout={handleLogout} onBack={() => setCurrentView('projects')} onViewToolRegistry={() => setCurrentView('tool-registry')} />;
   }
 
   if (currentView === 'tool-registry') {
-    return <AIToolRegistry role={userRole} onBack={() => setCurrentView('projects')} />;
+    return <AIToolRegistry user={currentUser} role={userRole} onLogout={handleLogout} onBack={() => setCurrentView('projects')} onViewDashboard={() => setCurrentView('dashboard')} />;
   }
 
   if (currentView === 'project-detail' && selectedProject) {
     return (
       <ProjectDashboard
         project={selectedProject}
+        user={currentUser}
         role={userRole}
         onBack={handleBackToProjects}
+        onLogout={handleLogout}
         onProjectUpdated={(updated) => setSelectedProject(updated)}
+        onViewToolRegistry={() => setCurrentView('tool-registry')}
+        onViewDashboard={() => setCurrentView('dashboard')}
       />
     );
   }
 
   return (
     <ProjectList
+      user={currentUser}
       role={userRole}
       onSelectProject={handleSelectProject}
       onLogout={handleLogout}
