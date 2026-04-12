@@ -168,11 +168,6 @@ function AIToolRegistry({ user, role, onLogout, onBack, onViewDashboard }) {
             </div>
           </div>
           <div className="pl-topbar-right">
-            {isFaculty && (
-              <button className="pl-add-btn" onClick={() => openAddModal('ai')}>
-                + Add Tool
-              </button>
-            )}
             <UserMenu user={user} role={role} onLogout={onLogout} />
           </div>
         </div>
@@ -210,6 +205,9 @@ function AIToolRegistry({ user, role, onLogout, onBack, onViewDashboard }) {
             <button className={`type-btn ${typeFilter === 'ai' ? 'active' : ''}`} onClick={() => setTypeFilter('ai')}>AI Tools</button>
             <button className={`type-btn ${typeFilter === 'general' ? 'active' : ''}`} onClick={() => setTypeFilter('general')}>Productivity & Research</button>
           </div>
+          {isFaculty && (
+            <button className="pl-add-btn" onClick={() => openAddModal('ai')}>+ Add Tool</button>
+          )}
         </div>
 
         {filtered.length === 0 ? (

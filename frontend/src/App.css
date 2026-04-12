@@ -4836,18 +4836,20 @@ footer {
 }
 
 .pl-add-btn {
-  background: none;
-  border: 1px solid rgba(255,255,255,0.3);
+  background: #006747;
+  border: 1px solid #006747;
   color: #fff;
   font-size: 0.8125rem;
-  padding: 0.375rem 1rem;
-  border-radius: 4px;
+  font-weight: 600;
+  padding: 0.5rem 1.25rem;
+  border-radius: 6px;
   cursor: pointer;
   transition: background 0.15s;
+  white-space: nowrap;
 }
 
 .pl-add-btn:hover {
-  background: rgba(255,255,255,0.1);
+  background: #005432;
 }
 
 /* ===== User Menu (Profile Avatar Dropdown) ===== */

@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import html2pdf from 'html2pdf.js';
 import { toggleCheckpoint, logDecision, fetchProject, updateProject, fetchTools, scanFileForPII, classifyData } from '../services/api';
-import EthicsAssistant from './EthicsAssistant';
-import Assessment from './Assessment';
 import CheckpointComments from './CheckpointComments';
 import UserMenu from './UserMenu';
 
@@ -14,7 +12,6 @@ function ProjectDashboard({ project: initialProject, user, role, onBack, onLogou
   const [expandedCheckpoint, setExpandedCheckpoint] = useState(null);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState('');
-  const [ethicsReviewPhase, setEthicsReviewPhase] = useState('assistant');
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [scanResult, setScanResult] = useState(null);
   const [scanning, setScanning] = useState(false);
@@ -54,6 +51,8 @@ function ProjectDashboard({ project: initialProject, user, role, onBack, onLogou
   const [showEditModal, setShowEditModal] = useState(false);
   const [editName, setEditName] = useState(project.name);
   const [editDescription, setEditDescription] = useState(project.description || '');
+  const [editCollaboratorEmail, setEditCollaboratorEmail] = useState('');
+  const [editError, setEditError] = useState('');
   const [availableTools, setAvailableTools] = useState([]);
 
   useEffect(() => {
@@ -527,20 +526,9 @@ function ProjectDashboard({ project: initialProject, user, role, onBack, onLogou
           </div>
         </div>
 
-      {/* Tabs */}
+      {/* Section Header */}
       <div className="dashboard-tabs">
-        <button
-          className={`tab ${activeTab === 'checkpoints' ? 'active' : ''}`}
-          onClick={() => setActiveTab('checkpoints')}
-        >
-          Compliance Tracker
-        </button>
-        <button
-          className={`tab ${activeTab === 'ethics-review' ? 'active' : ''}`}
-          onClick={() => { setEthicsReviewPhase('assistant'); setActiveTab('ethics-review'); }}
-        >
-          Ethics Review
-        </button>
+        <button className="tab active">Compliance Tracker</button>
       </div>
 
       {/* Checkpoints Tab */}
@@ -708,34 +696,6 @@ function ProjectDashboard({ project: initialProject, user, role, onBack, onLogou
         </div>
       )}
 
-      {/* Ethics Review Tab */}
-      {activeTab === 'ethics-review' && (
-        <div className="ethics-review-section">
-          <div className="ethics-review-toggle">
-            <button
-              className={`toggle-btn ${ethicsReviewPhase === 'assistant' ? 'active' : ''}`}
-              onClick={() => setEthicsReviewPhase('assistant')}
-            >
-              Project Review
-            </button>
-            <button
-              className={`toggle-btn ${ethicsReviewPhase === 'quiz' ? 'active' : ''}`}
-              onClick={() => setEthicsReviewPhase('quiz')}
-            >
-              Knowledge Check
-            </button>
-          </div>
-          {ethicsReviewPhase === 'assistant' ? (
-            <div className="ethics-tab-section">
-              <EthicsAssistant onBack={() => setActiveTab('checkpoints')} />
-            </div>
-          ) : (
-            <div className="assessment-tab-section">
-              <Assessment onBack={() => setEthicsReviewPhase('assistant')} />
-            </div>
-          )}
-        </div>
-      )}
 
 
       {/* Document Checkpoint Modal */}
@@ -955,17 +915,48 @@ function ProjectDashboard({ project: initialProject, user, role, onBack, onLogou
                 rows={3}
               />
             </div>
+            <div className="form-group">
+              <label>Use Case</label>
+              <input type="text" value={useCaseLabelsShort[project.aiUseCase] || project.aiUseCase} disabled style={{background: '#f1f5f9', color: '#64748b'}} />
+              <p className="form-hint">Use case cannot be changed after creation as it determines the compliance checkpoints</p>
+            </div>
+            <div className="form-group">
+              <label>{role === 'pi' ? 'Student Collaborator Email' : 'Faculty Advisor Email'}</label>
+              <input
+                type="email"
+                value={editCollaboratorEmail}
+                onChange={(e) => setEditCollaboratorEmail(e.target.value)}
+                placeholder={role === 'pi' ? 'e.g., student@usf.edu' : 'e.g., advisor@usf.edu'}
+              />
+              {role === 'pi' && project.studentCollaborator && (
+                <p className="form-hint">Currently shared with: {project.studentCollaborator.name} ({project.studentCollaborator.email})</p>
+              )}
+              {role !== 'pi' && project.facultyAdvisor && (
+                <p className="form-hint">Currently shared with: {project.facultyAdvisor.name} ({project.facultyAdvisor.email})</p>
+              )}
+              {!project.facultyAdvisor && role !== 'pi' && (
+                <p className="form-hint">Your faculty advisor will see this activity and complete checkpoints assigned to them</p>
+              )}
+            </div>
+            {editError && <p className="error-text">{editError}</p>}
             <div className="modal-actions">
-              <button className="btn-secondary" onClick={() => setShowEditModal(false)}>Cancel</button>
+              <button className="btn-secondary" onClick={() => { setShowEditModal(false); setEditError(''); }}>Cancel</button>
               <button className="btn-primary" onClick={async () => {
+                setEditError('');
                 try {
-                  const updated = await updateProject(project.id, { name: editName.trim(), description: editDescription });
-                  setProject({ ...project, name: updated.name, description: updated.description });
-                  if (onProjectUpdated) onProjectUpdated({ ...project, name: updated.name, description: updated.description });
+                  const updateData = { name: editName.trim(), description: editDescription };
+                  if (editCollaboratorEmail.trim()) {
+                    const field = role === 'pi' ? 'student_collaborator_email' : 'faculty_advisor_email';
+                    updateData[field] = editCollaboratorEmail.trim();
+                  }
+                  const updated = await updateProject(project.id, updateData);
+                  setProject(updated);
+                  if (onProjectUpdated) onProjectUpdated(updated);
                   setShowEditModal(false);
+                  setEditCollaboratorEmail('');
                   showToast('Activity updated');
                 } catch (err) {
-                  console.error('Failed to update', err);
+                  setEditError(err.response?.data?.error || 'Failed to update');
                 }
               }} disabled={!editName.trim()}>
                 Save

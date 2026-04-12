@@ -272,14 +272,14 @@ function ProjectList({ user, role, onSelectProject, onLogout, onViewDashboard, o
 
             {role === 'student' && (
               <div className="form-group">
-                <label>Faculty Advisor Email (optional)</label>
+                <label>Faculty Advisor Email *</label>
                 <input
                   type="email"
                   value={newProject.facultyEmail}
                   onChange={(e) => setNewProject({ ...newProject, facultyEmail: e.target.value })}
                   placeholder="e.g., advisor@usf.edu"
                 />
-                <p className="form-hint">Your faculty advisor will be able to see this activity and complete their assigned checkpoints</p>
+                <p className="form-hint">Required — your faculty advisor will see this activity and complete checkpoints assigned to them</p>
               </div>
             )}
             {role === 'pi' && (
@@ -328,7 +328,7 @@ function ProjectList({ user, role, onSelectProject, onLogout, onViewDashboard, o
               <button
                 className="btn-primary"
                 onClick={handleCreateProject}
-                disabled={!newProject.name.trim() || !newProject.aiUseCase || creating}
+                disabled={!newProject.name.trim() || !newProject.aiUseCase || creating || (role === 'student' && !newProject.facultyEmail.trim())}
               >
                 {creating ? 'Creating...' : 'Create Activity'}
               </button>
